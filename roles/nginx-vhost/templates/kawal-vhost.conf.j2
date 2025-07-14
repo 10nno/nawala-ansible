@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name {{ item.kawal_domain }};
+    server_name {{ item.1 }};
 
     # Combine multiple nginx variables for pseudo-randomness
     set $temp $msec$request_id$remote_port;
@@ -15,5 +15,14 @@ server {
         set $random_str "a1b2c";
     }
 
-    return 302 https://$random_str.{{ item.fresh_domain }}$request_uri;
+    # Select a fresh domain based on the kawal domain index
+    {% set kawal_domains_list = item.0.kawal_domains %}
+    {% set fresh_domains_list = item.0.fresh_domains %}
+    {% set current_index = kawal_domains_list.index(item.1) %}
+    {% if current_index < fresh_domains_list|length %}
+    {% set fresh_domain = fresh_domains_list[current_index] %}
+    {% else %}
+    {% set fresh_domain = fresh_domains_list[0] %}
+    {% endif %}
+    return 302 https://$random_str.{{ fresh_domain }}$request_uri;
 }

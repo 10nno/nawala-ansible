@@ -1,19 +1,19 @@
 server {
     listen 80;
-    server_name *.{{ item.fresh_domain }};
+    server_name *.{{ item.1 }};
     return 302 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
-    ssl_certificate /etc/letsencrypt/live/{{ item.fresh_domain }}/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/{{ item.fresh_domain }}/privkey.pem; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/{{ item.1 }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ item.1 }}/privkey.pem;
 
-    server_name *.{{ item.fresh_domain }};
+    server_name *.{{ item.1 }};
 
     location / {
         proxy_ssl_server_name on;
-        proxy_pass http://{{ item.main_domain }}/;
+        proxy_pass http://{{ item.0.main_domain }}/;
         proxy_set_header Accept-Encoding "";
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Real-IP $remote_addr;
@@ -22,21 +22,21 @@ server {
         proxy_set_header Cookie $http_cookie;
 
         # Enable sub_filter module
-        sub_filter_once off;  # Replace all occurrences, not just the first one
-        sub_filter 'http://{{ item.main_domain }}' '$host';
-        sub_filter 'action="http://{{ item.main_domain }}/register"' 'action="https://$host/register"';
+        sub_filter_once off;
+        sub_filter 'http://{{ item.0.main_domain }}' '$host';
+        sub_filter 'action="http://{{ item.0.main_domain }}/register"' 'action="https://$host/register"';
         sub_filter_types text/html text/javascript application/javascript;
 
-        proxy_redirect http://{{ item.main_domain }}/ /;
+        proxy_redirect http://{{ item.0.main_domain }}/ /;
 
-        {% if item.canon_domain is defined %}
-        sub_filter 'http://{{ item.canon_domain }}' '$scheme://$host';
-        sub_filter 'https://{{ item.canon_domain }}' '$scheme://$host';
+        {% if item.0.canon_domain is defined %}
+        sub_filter 'http://{{ item.0.canon_domain }}' '$scheme://$host';
+        sub_filter 'https://{{ item.0.canon_domain }}' '$scheme://$host';
         {% endif %}
     }
 
     error_log on;
-    error_log /var/log/nginx/{{ item.name }}_fresh_error.log;
+    error_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_error.log;
 
     gzip on;
     gzip_disable "msie6";
