@@ -1,0 +1,19 @@
+server {
+    listen 80;
+    server_name {{ item.kawal_domain }};
+
+    # Combine multiple nginx variables for pseudo-randomness
+    set $temp $msec$request_id$remote_port;
+
+    # Extract 5 characters using regex
+    if ($temp ~ "(\w).*(\w).*(\w).*(\w).*(\w)") {
+        set $random_str $1$2$3$4$5;
+    }
+
+    # Fallback
+    if ($random_str = "") {
+        set $random_str "a1b2c";
+    }
+
+    return 302 https://$random_str.{{ item.fresh_domain }}$request_uri;
+}

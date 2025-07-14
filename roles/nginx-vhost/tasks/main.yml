@@ -1,0 +1,76 @@
+    - name: Ensure nginx is installed
+      apt:
+        name: nginx
+        state: present
+
+    - name: Check if Cloudflare credentials exist
+      stat:
+        path: /etc/letsencrypt/cloudflare.ini
+      register: cloudflare_creds
+
+    - name: Ensure Cloudflare credentials are configured
+      fail:
+        msg: "Cloudflare credentials file not found at /etc/letsencrypt/cloudflare.ini"
+      when: not cloudflare_creds.stat.exists
+
+    - name: Generate SSL certificate for fresh domain only
+      command: >
+        certbot certonly --dns-cloudflare
+        --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
+        -d {{ item.fresh_domain }}
+        -d *.{{ item.fresh_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ item.fresh_domain }}/fullchain.pem"
+      loop: "{{ vhosts }}"
+      when: item.fresh_domain is defined
+      register: ssl_generation
+
+    - name: Wait for DNS propagation if SSL was generated
+      pause:
+        seconds: 30
+      when: ssl_generation.changed
+
+    - name: Create kawal domain vhost configuration
+      template:
+        src: kawal-vhost.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item.name }}-kawal.conf"
+        mode: '0644'
+      loop: "{{ vhosts }}"
+      when: item.kawal_domain is defined
+      notify: reload nginx
+
+    - name: Create fresh domain vhost configuration
+      template:
+        src: fresh-vhost.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item.name }}-fresh.conf"
+        mode: '0644'
+      loop: "{{ vhosts }}"
+      when: item.fresh_domain is defined
+      notify: reload nginx
+
+    - name: Enable kawal domain vhost
+      file:
+        src: "/etc/nginx/sites-available/{{ item.name }}-kawal.conf"
+        dest: "/etc/nginx/sites-enabled/{{ item.name }}-kawal.conf"
+        state: link
+      loop: "{{ vhosts }}"
+      when: item.kawal_domain is defined
+      notify: reload nginx
+
+    - name: Enable fresh domain vhost
+      file:
+        src: "/etc/nginx/sites-available/{{ item.name }}-fresh.conf"
+        dest: "/etc/nginx/sites-enabled/{{ item.name }}-fresh.conf"
+        state: link
+      loop: "{{ vhosts }}"
+      when: item.fresh_domain is defined
+      notify: reload nginx
+
+    - name: Test nginx configuration
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Display nginx test result
+      debug:
+        var: nginx_test.stdout_lines

@@ -1,0 +1,5 @@
+---
+#ssl_email: "admin@example.com"
+
+# Cloudflare credentials file location
+cloudflare_credentials: "/etc/letsencrypt/cloudflare.ini"

@@ -1,0 +1,8 @@
+---
+- name: Create and configure Nginx vhost
+  hosts: nawala
+  become: yes
+  vars_files:
+    - "{{ vhost_config_file | default('vhost_config.yml') }}"
+  roles:
+    - nginx-vhost
