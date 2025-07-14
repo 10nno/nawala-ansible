@@ -16,13 +16,21 @@ server {
     }
 
     # Select a fresh domain based on the kawal domain index
-    {% set kawal_domains_list = item.0.kawal_domains %}
-    {% set fresh_domains_list = item.0.fresh_domains %}
-    {% set current_index = kawal_domains_list.index(item.1) %}
-    {% if current_index < fresh_domains_list|length %}
-    {% set fresh_domain = fresh_domains_list[current_index] %}
+    {% if item.0.kawal_domains is defined and item.0.fresh_domains is defined %}
+        {% set kawal_domains_list = item.0.kawal_domains %}
+        {% set fresh_domains_list = item.0.fresh_domains %}
+        {% set current_index = kawal_domains_list.index(item.1) %}
+        {% if current_index < fresh_domains_list|length %}
+            {% set fresh_domain = fresh_domains_list[current_index] %}
+        {% else %}
+            {% set fresh_domain = fresh_domains_list[0] %}
+        {% endif %}
+    {% elif item.0.fresh_domains is defined %}
+        {# If only fresh_domains exists, use the first one #}
+        {% set fresh_domain = item.0.fresh_domains[0] %}
     {% else %}
-    {% set fresh_domain = fresh_domains_list[0] %}
+        {# Fallback to a default #}
+        {% set fresh_domain = "example.com" %}
     {% endif %}
     return 302 https://$random_str.{{ fresh_domain }}$request_uri;
 }

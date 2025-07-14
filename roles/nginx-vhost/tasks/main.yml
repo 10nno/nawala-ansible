@@ -14,7 +14,7 @@
     msg: "Cloudflare credentials file not found at /etc/letsencrypt/cloudflare.ini"
   when: not cloudflare_creds.stat.exists
 
-  # Create kawal domain configurations
+# Create kawal domain configurations
 - name: Create kawal domain vhost configurations
   template:
     src: kawal-vhost.conf.j2
@@ -29,7 +29,7 @@
 # Generate SSL certificates for each fresh domain
 - name: Generate SSL certificate for fresh domains
   command: >
-    certbotcf certonly --dns-cloudflare
+    certbot certonly --dns-cloudflare
     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
     -d {{ fresh_domain }}
     -d *.{{ fresh_domain }}
@@ -49,6 +49,7 @@
   pause:
     seconds: 30
   when: ssl_generation.changed
+
 
 # Create fresh domain configurations
 - name: Create fresh domain vhost configurations

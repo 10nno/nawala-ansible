@@ -1,12 +1,11 @@
----
 vhosts:
 - name: slotogel
   main_domain: slotogelasia.com
-  kawal_domains:
+  kawal_domains:  # NEW FORMAT - PLURAL with array
     - slotogelpro.com
     - slotogelmax.com
     - slotogelwin.com
-  fresh_domains:
+  fresh_domains:  # NEW FORMAT - PLURAL with array
     - slotogelpro.xyz
     - slotogelmax.xyz
     - slotogelwin.xyz
