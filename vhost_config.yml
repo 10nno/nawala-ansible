@@ -2,5 +2,11 @@
 vhosts:
 - name: slotogel
   main_domain: slotogelasia.com
-  kawal_domain: slotogelpro.com
-  fresh_domain: slotogelpro.xyz
+  kawal_domains:
+    - slotogelpro.com
+    - slotogelmax.com
+    - slotogelwin.com
+  fresh_domains:
+    - slotogelpro.xyz
+    - slotogelmax.xyz
+    - slotogelwin.xyz

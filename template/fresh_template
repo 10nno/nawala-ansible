@@ -1,62 +1,60 @@
 server {
-listen 80;
-    server_name  *.fresh_domain;
-return 302 https://$host$request_uri;
+    listen 80;
+    server_name *.{{ item.1 }};
+    return 302 https://$host$request_uri;
 }
 
 server {
-listen 443 ssl;
- ssl_certificate /etc/letsencrypt/live/fresh_domain/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/fresh_domain/privkey.pem; # managed by Certbot
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/{{ item.1 }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ item.1 }}/privkey.pem;
 
-    server_name  *.fresh_domain;
+    server_name *.{{ item.1 }};
 
-        location / {
-            proxy_ssl_server_name on;
-            proxy_pass http://main_domain/;
-            proxy_set_header Accept-Encoding "";
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Host $host;
-
-            proxy_set_header Cookie $http_cookie;
+    location / {
+        proxy_ssl_server_name on;
+        proxy_pass http://{{ item.0.main_domain }}/;
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Cookie $http_cookie;
 
         # Enable sub_filter module
-        sub_filter_once off;  # Replace all occurrences, not just the first one
-        sub_filter 'http://main_domain' $host;
-        sub_filter 'action="http://main_domain/register"' 'action="https://$host/register"';
+        sub_filter_once off;
+        sub_filter 'http://{{ item.0.main_domain }}' '$host';
+        sub_filter 'action="http://{{ item.0.main_domain }}/register"' 'action="https://$host/register"';
         sub_filter_types text/html text/javascript application/javascript;
 
-        proxy_redirect http://main_domain/ /;
-        proxy_redirect http://main_domain/ /;
+        proxy_redirect http://{{ item.0.main_domain }}/ /;
 
-        sub_filter 'http://canon_domain' '$scheme://$host';
-        sub_filter 'https://canon_domain' '$scheme://$host';
-
+        {% if item.0.canon_domain is defined %}
+        sub_filter 'http://{{ item.0.canon_domain }}' '$scheme://$host';
+        sub_filter 'https://{{ item.0.canon_domain }}' '$scheme://$host';
+        {% endif %}
     }
 
     error_log on;
-    error_log /var/log/nginx/error.log;
+    error_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_error.log;
 
-                gzip on;
-                gzip_disable "msie6";
-                gzip_vary on;
-                gzip_comp_level 6;
-                gzip_min_length 1100;
-                gzip_buffers 16 8k;
-                gzip_proxied any;
-                gzip_types
-                text/plain
-                text/css
-                text/js
-                text/xml
-                text/javascript
-                application/javascript
-                application/x-javascript
-                application/json
-                application/xml
-                application/rss+xml
-                image/svg+xml;
-
+    gzip on;
+    gzip_disable "msie6";
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 1100;
+    gzip_buffers 16 8k;
+    gzip_proxied any;
+    gzip_types
+        text/plain
+        text/css
+        text/js
+        text/xml
+        text/javascript
+        application/javascript
+        application/x-javascript
+        application/json
+        application/xml
+        application/rss+xml
+        image/svg+xml;
 }
