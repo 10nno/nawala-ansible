@@ -14,10 +14,22 @@
     msg: "Cloudflare credentials file not found at /etc/letsencrypt/cloudflare.ini"
   when: not cloudflare_creds.stat.exists
 
+  # Create kawal domain configurations
+- name: Create kawal domain vhost configurations
+  template:
+    src: kawal-vhost.conf.j2
+    dest: "/etc/nginx/sites-available/{{ item.0.name }}-kawal-{{ item.1 | replace('.', '_') }}.conf"
+    mode: '0644'
+  with_subelements:
+    - "{{ vhosts }}"
+    - kawal_domains
+    - skip_missing: True
+  notify: reload nginx
+
 # Generate SSL certificates for each fresh domain
 - name: Generate SSL certificate for fresh domains
   command: >
-    certbot certonly --dns-cloudflare
+    certbotcf certonly --dns-cloudflare
     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
     -d {{ fresh_domain }}
     -d *.{{ fresh_domain }}
@@ -37,18 +49,6 @@
   pause:
     seconds: 30
   when: ssl_generation.changed
-
-# Create kawal domain configurations
-- name: Create kawal domain vhost configurations
-  template:
-    src: kawal-vhost.conf.j2
-    dest: "/etc/nginx/sites-available/{{ item.0.name }}-kawal-{{ item.1 | replace('.', '_') }}.conf"
-    mode: '0644'
-  with_subelements:
-    - "{{ vhosts }}"
-    - kawal_domains
-    - skip_missing: True
-  notify: reload nginx
 
 # Create fresh domain configurations
 - name: Create fresh domain vhost configurations
