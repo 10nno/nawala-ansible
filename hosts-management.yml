@@ -5,4 +5,4 @@
   tasks:
   - name: file lookup demo
     debug:
-      msg: "{{ lookup('file', '/home/promo/hosts') }}"
+      var: "{{ lookup('file', '/home/promo/hosts') }}"
