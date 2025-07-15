@@ -1,10 +1,10 @@
 ---
 vhosts:
-- name: klubslot
-  main_domain: klubslot.com
+- name: sektorplay88
+  main_domain: sektorplay88.com
   kawal_domains:
-    - klubslotplay.com
-    - iniklubslot.com
+    - sektorindo.me
+    - sektorgame.vip
   fresh_domains:
-    - kingklubslot.online
-    - jawaraklubslot.store
+    - sektorsaham.pro
+    - sektortambang.club

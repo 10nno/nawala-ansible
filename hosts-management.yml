@@ -1,9 +1,44 @@
 ---
-- name: Create and configure Nginx vhost
+- name: Read and Display File Contents
   hosts: nawala
   become: yes
+  vars:
+    # Default file path - can be overridden when running the playbook
+    target_file: "/etc/hosts"
+  
   tasks:
-  - name: file lookup demo
-    ansible.builtin.debug: var=item
-    with_file:
-     - "/home/promo/hosts"
+    - name: Check if target file exists
+      stat:
+        path: "{{ target_file }}"
+      register: file_stat
+    
+    - name: Display error if file doesn't exist
+      debug:
+        msg: "ERROR: File {{ target_file }} does not exist on the target host"
+      when: not file_stat.stat.exists
+    
+    - name: Read file contents
+      slurp:
+        src: "{{ target_file }}"
+      register: file_content
+      when: file_stat.stat.exists
+    
+    - name: Display file contents
+      debug:
+        msg: "{{ file_content.content | b64decode }}"
+      when: 
+        - file_stat.stat.exists
+        - file_content is defined
+    
+    - name: Alternative method - using cat command
+      command: cat {{ target_file }}
+      register: cat_output
+      when: file_stat.stat.exists
+      changed_when: false
+    
+    - name: Display cat output
+      debug:
+        var: cat_output.stdout_lines
+      when: 
+        - file_stat.stat.exists
+        - cat_output is defined
