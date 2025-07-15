@@ -1,0 +1,8 @@
+---
+- name: Create and configure Nginx vhost
+  hosts: nawala
+  become: yes
+  tasks:
+  - name: file lookup demo
+    debug:
+      msg: "{{ lookup('file', '/home/promo/hosts') }}"
