@@ -1,10 +1,10 @@
 ---
 vhosts:
-- name: maniaslot
-  main_domain: maniaslot.com
+- name: klubslot
+  main_domain: klubslot.com
   kawal_domains:
-    - maniawash.com
-    - maniawish.com
+    - klubslotplay.com
+    - iniklubslot.com
   fresh_domains:
-    - maniaslt.com
-    - maniaslot1.com
+    - kingklubslot.online
+    - jawaraklubslot.store

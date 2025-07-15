@@ -4,5 +4,6 @@
   become: yes
   tasks:
   - name: file lookup demo
-    debug:
-      var: "{{ lookup('file', '/home/promo/hosts') }}"
+    ansible.builtin.debug: var=item
+    with_file:
+     - "/home/promo/hosts"
