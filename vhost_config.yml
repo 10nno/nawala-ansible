@@ -1,10 +1,10 @@
 ---
 vhosts:
-- name: jakartacash
-  main_domain: jktcash88.com
+- name: maniaslot
+  main_domain: maniaslot.com
   kawal_domains:
-    - test111
-    - test111
+    - maniawash.com
+    - maniawish.com
   fresh_domains:
-    - test111
-    - test111
+    - maniaslt.com
+    - maniaslot1.com
