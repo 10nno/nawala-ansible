@@ -22,19 +22,15 @@
         src: "{{ target_file }}"
       register: file_content
       when: file_stat.stat.exists
-    
-    - name: Display file contents
-      debug:
-        msg: "{{ file_content.content | b64decode }}"
-      when: 
-        - file_stat.stat.exists
-        - file_content is defined
-    
+       
     - name: Alternative method - using cat command
       command: cat {{ target_file }}
       register: cat_output
       when: file_stat.stat.exists
       changed_when: false
+      tags:
+       - cat_method
+       - cat_display
     
     - name: Display cat output
       debug:
@@ -42,3 +38,6 @@
       when: 
         - file_stat.stat.exists
         - cat_output is defined
+      tags:
+       - cat_method
+       - cat_display
