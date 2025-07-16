@@ -1,6 +1,3 @@
-# Map directives for {{ item.1 }} ({{ item.0.name }})
-# These should be included at http level in /etc/nginx/conf.d/maps-{{ item.0.name }}-{{ item.1 | replace('.', '_') }}.conf
-
 map $http_cookie $has_sticky_cookie_{{ item.1 | replace('.', '_') }} {
     default 0;
     {% for fresh_domain in item.0.fresh_domains %}
@@ -22,7 +19,19 @@ map $http_cookie $sticky_domain_{{ item.1 | replace('.', '_') }} {
 map $msec$remote_port $selected_fresh_{{ item.1 | replace('.', '_') }} {
     {% set fresh_domains = item.0.fresh_domains %}
     {% set domains_count = fresh_domains | length %}
-    {% if domains_count > 0 %}
+    {% if domains_count == 2 %}
+    ~.*[0-4]$ "{{ fresh_domains[0] }}";
+    ~.*[5-9]$ "{{ fresh_domains[1] }}";
+    {% elif domains_count == 3 %}
+    ~.*[0-2]$ "{{ fresh_domains[0] }}";
+    ~.*[3-5]$ "{{ fresh_domains[1] }}";
+    ~.*[6-9]$ "{{ fresh_domains[2] }}";
+    {% elif domains_count == 4 %}
+    ~.*[0-1]$ "{{ fresh_domains[0] }}";
+    ~.*[2-4]$ "{{ fresh_domains[1] }}";
+    ~.*[5-7]$ "{{ fresh_domains[2] }}";
+    ~.*[8-9]$ "{{ fresh_domains[3] }}";
+    {% else %}
         {% for i in range(domains_count) %}
             {% set start_digit = (i * 10) // domains_count %}
             {% set end_digit = ((i + 1) * 10) // domains_count - 1 %}
@@ -36,30 +45,11 @@ map $msec$remote_port $selected_fresh_{{ item.1 | replace('.', '_') }} {
     default "{{ fresh_domains[0] if fresh_domains else 'example.com' }}";
 }
 
-server {
-    listen 80;
-    server_name {{ item.1 }};
-    return 301 https://$server_name$request_uri;
-}
 
 server {
-    listen 443 ssl http2;
+    listen 443;
     server_name {{ item.1 }};
     
-    ssl_certificate /etc/letsencrypt/live/{{ item.1 }}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{{ item.1 }}/privkey.pem;
-    
-    # SSL configuration
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
-
-    # Debug headers (remove in production)
-    add_header X-Debug-Sub "$sticky_sub_{{ item.1 | replace('.', '_') }}";
-    add_header X-Debug-Domain "$sticky_domain_{{ item.1 | replace('.', '_') }}";
-    add_header X-Debug-HasSticky "$has_sticky_cookie_{{ item.1 | replace('.', '_') }}";
     
     location / {
         set $temp "${request_id}${msec}${remote_port}";
@@ -76,7 +66,7 @@ server {
             set $fallback_str "$request_id";
         }
         
-        # Extract from fallback if needed
+        # Extract from fallback if needed (not strict but safe)
         if ($fallback_str ~ "^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f])") {
             set $random_str "$1$2$3";
         }
