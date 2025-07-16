@@ -1,41 +1,16 @@
-{% if item.0.fresh_domains is defined and item.0.fresh_domains|length > 0 %}
-# Split clients configuration for fresh domain distribution
-split_clients "${remote_addr}${http_user_agent}${msec}" $fresh_domain_{{ item.1 | replace('.', '_') }} {
-    {% set fresh_domains_list = item.0.fresh_domains %}
-    {% set percent_per_domain = 100.0 / fresh_domains_list|length %}
-    {% for fresh_domain in fresh_domains_list %}
-    {% if loop.last %}
-    *                           {{ fresh_domain }};
-    {% else %}
-    {{ "%.1f%%" | format(percent_per_domain) }}    {{ fresh_domain }};
-    {% endif %}
-    {% endfor %}
-}
-{% endif %}
-
-
-
 server {
     listen 443;
     server_name {{ item.1 }};
-
-
-    # Check for existing sticky cookie
-    map $http_cookie $sticky_info {
-        default "";
-        "~*sticky_{{ item.0.name }}=([a-zA-Z0-9]{5})_([^;]+)" "$1:$2";
-    }
-
     location / {
-        # Parse sticky cookie if exists
-        set $has_sticky 0;
+        # Check for existing sticky cookie
         set $sticky_sub "";
         set $sticky_domain "";
+        set $has_sticky 0;
         
-        if ($sticky_info ~ "^([^:]+):(.+)$") {
-            set $has_sticky 1;
+        if ($http_cookie ~* "sticky_{{ item.0.name }}=([a-zA-Z0-9]{5})_([^;]+)") {
             set $sticky_sub $1;
             set $sticky_domain $2;
+            set $has_sticky 1;
         }
 
         # Validate sticky domain is still in our list
@@ -48,55 +23,70 @@ server {
         {% endfor %}
         {% endif %}
 
-        # If valid sticky exists, use it
-        if ($has_sticky = 1) {
-            if ($valid_sticky = 1) {
-                return 302 https://$sticky_sub.$sticky_domain$request_uri;
-            }
+        # Check if we should use sticky
+        set $use_sticky "${has_sticky}${valid_sticky}";
+        
+        # If we have a valid sticky cookie, use it
+        if ($use_sticky = "11") {
+            return 302 https://$sticky_sub.$sticky_domain$request_uri;
         }
 
         # Generate new random subdomain
         set $temp "${request_id}${msec}${remote_port}";
+        set $random_str "";
         
-        # Extract alphanumeric characters with better distribution
+        # Extract alphanumeric characters
         if ($temp ~ "([0-9a-fA-F])([0-9])([0-9a-fA-F])([0-9])([0-9a-fA-F])") {
             set $random_str "$1$2$3$4$5";
         }
         
-        # Second attempt with different pattern
+        # Fallback pattern
         if ($random_str = "") {
-            if ($temp ~ "^.{2}([0-9a-fA-F]).{1}([0-9]).{2}([0-9a-fA-F]).{1}([0-9]).{1}([0-9a-fA-F])") {
-                set $random_str "$1$2$3$4$5";
-            }
-        }
-        
-        # Final fallback
-        if ($random_str = "") {
-            # Use first 5 chars of request_id
-            if ($request_id ~ "^([0-9a-f]{5})") {
-                set $random_str $1;
+            if ($request_id ~ "^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f])") {
+                set $random_str "$1$2$3";
             }
         }
         
         # Ultimate fallback
         if ($random_str = "") {
-            set $random_str "x1y2z";
+            set $random_str "a1b2c";
         }
 
-        # Use split_clients result for fresh domain selection
+        # Select fresh domain based on simple hash of IP and time
         {% if item.0.fresh_domains is defined and item.0.fresh_domains|length > 0 %}
-        set $selected_fresh $fresh_domain_{{ item.1 | replace('.', '_') }};
+        {% set fresh_domains_list = item.0.fresh_domains %}
+        {% set domain_count = fresh_domains_list|length %}
+        
+        # Extract last digits from variables for distribution
+        set $selector "${msec}${remote_port}";
+        set $selected_fresh "";
+        
+        # Simple modulo-like distribution using last digit
+        if ($selector ~ "(\d)$") {
+            set $last_digit $1;
+        }
+        
+        # Map digit to fresh domain
+        {% for i in range(domain_count) %}
+        {% set start_digit = (i * 10) // domain_count %}
+        {% set end_digit = ((i + 1) * 10) // domain_count - 1 %}
+        if ($last_digit ~ "^[{{ start_digit }}-{{ end_digit }}]$") {
+            set $selected_fresh "{{ fresh_domains_list[i] }}";
+        }
+        {% endfor %}
+        
+        # Fallback to first domain
+        if ($selected_fresh = "") {
+            set $selected_fresh "{{ fresh_domains_list[0] }}";
+        }
         {% else %}
         set $selected_fresh "example.com";
         {% endif %}
 
-        # Set sticky cookie with secure attributes
-        # Cookie expires in 7 days (604800 seconds)
-        add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_${selected_fresh}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax; Domain=.{{ item.1 }}";
-        
-        # Log the assignment for debugging
-        access_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_sticky.log;
+        # Set sticky cookie
+        add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_${selected_fresh}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax";
         
         return 302 https://$random_str.$selected_fresh$request_uri;
     }
+
 }
