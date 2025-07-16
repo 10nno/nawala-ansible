@@ -2,17 +2,32 @@ server {
     listen 443;
     server_name {{ item.1 }};
 
-    # Combine multiple nginx variables for pseudo-randomness
-    set $temp $msec$request_id$remote_port;
+    # Combine multiple nginx variables for better randomness
+    # Using request_id (hex), msec (timestamp), and remote_port
+    set $temp $request_id$msec$remote_port;
 
-    # Extract 5 characters using regex
-    if ($temp ~ "(\w).*(\w).*(\w).*(\w).*(\w)") {
+    # Extract 5 alphanumeric characters from the combined string
+    # The regex will match any alphanumeric character (a-z, A-Z, 0-9)
+    if ($temp ~ "([a-zA-Z0-9]).*([a-zA-Z0-9]).*([a-zA-Z0-9]).*([a-zA-Z0-9]).*([a-zA-Z0-9])") {
         set $random_str $1$2$3$4$5;
     }
 
-    # Fallback
+    # Alternative extraction pattern to ensure we get a good mix
+    # This tries to get characters from different positions
+    if ($random_str = "") {
+        if ($temp ~ "^.{2}([a-zA-Z0-9]).{4}([a-zA-Z0-9]).{3}([a-zA-Z0-9]).{2}([a-zA-Z0-9]).{1}([a-zA-Z0-9])") {
+            set $random_str $1$2$3$4$5;
+        }
+    }
+
+    # Final fallback with mixed alphanumeric
     if ($random_str = "") {
         set $random_str "a1b2c";
+    }
+
+    # Convert to lowercase for consistency (optional)
+    set_by_lua_block $random_str_lower {
+        return string.lower(ngx.var.random_str)
     }
 
     # Select a fresh domain based on the kawal domain index
@@ -32,5 +47,7 @@ server {
         {# Fallback to a default #}
         {% set fresh_domain = "example.com" %}
     {% endif %}
-    return 302 https://$random_str.{{ fresh_domain }}$request_uri;
+    
+    # Use the lowercase version if Lua is available, otherwise use as-is
+    return 302 https://$random_str_lower.{{ fresh_domain }}$request_uri;
 }

@@ -51,3 +51,37 @@
       tags:
         - cat_method
         - cat_display
+        
+    - name: Replace line in file
+      lineinfile:
+        path: "{{ target_file }}"
+        regexp: "^{{ old_line | regex_escape() }}$"
+        line: "{{ new_line }}"
+        backup: yes
+      when:
+        - old_line is defined
+        - new_line is defined
+      tags:
+        - edit_line
+        - modify_file
+    
+    - name: Verify line replacement
+      command: grep "{{ new_line }}" {{ target_file }}
+      register: verify_output
+      when:
+        - old_line is defined
+        - new_line is defined
+      changed_when: false
+      failed_when: false
+      tags:
+        - edit_line
+        - verify_edit
+    
+    - name: Display verification result
+      debug:
+        msg: "Line successfully replaced: {{ verify_output.stdout }}"
+      when:
+        - verify_output is defined
+        - verify_output.rc == 0
+      tags:
+        - verify_edit

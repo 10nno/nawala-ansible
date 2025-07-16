@@ -1,10 +1,11 @@
 ---
 vhosts:
-- name: sektorplay88
-  main_domain: sektorplay88.com
+- name: dash86
+  main_domain: dashidn.co
   kawal_domains:
-    - sektorindo.me
-    - sektorgame.vip
+    - dashaktif24jam.com
+    - dash88aktif24jam.com
+    - dash88active.com
   fresh_domains:
-    - sektorsaham.pro
-    - sektortambang.club
+    - dashslotidr.com
+    - dash88slotidr.com
