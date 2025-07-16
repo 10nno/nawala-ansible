@@ -1,53 +1,102 @@
+{% if item.0.fresh_domains is defined and item.0.fresh_domains|length > 0 %}
+# Split clients configuration for fresh domain distribution
+split_clients "${remote_addr}${http_user_agent}${msec}" $fresh_domain_{{ item.1 | replace('.', '_') }} {
+    {% set fresh_domains_list = item.0.fresh_domains %}
+    {% set percent_per_domain = 100.0 / fresh_domains_list|length %}
+    {% for fresh_domain in fresh_domains_list %}
+    {% if loop.last %}
+    *                           {{ fresh_domain }};
+    {% else %}
+    {{ "%.1f%%" | format(percent_per_domain) }}    {{ fresh_domain }};
+    {% endif %}
+    {% endfor %}
+}
+{% endif %}
+
+
+
 server {
     listen 443;
     server_name {{ item.1 }};
 
-    # Combine multiple nginx variables for better randomness
-    # Using request_id (hex), msec (timestamp), and remote_port
-    set $temp $request_id$msec$remote_port;
 
-    # Extract 5 alphanumeric characters from the combined string
-    # The regex will match any alphanumeric character (a-z, A-Z, 0-9)
-    if ($temp ~ "([a-zA-Z0-9]).*([a-zA-Z0-9]).*([a-zA-Z0-9]).*([a-zA-Z0-9]).*([a-zA-Z0-9])") {
-        set $random_str $1$2$3$4$5;
+    # Check for existing sticky cookie
+    map $http_cookie $sticky_info {
+        default "";
+        "~*sticky_{{ item.0.name }}=([a-zA-Z0-9]{5})_([^;]+)" "$1:$2";
     }
 
-    # Alternative extraction pattern to ensure we get a good mix
-    # This tries to get characters from different positions
-    if ($random_str = "") {
-        if ($temp ~ "^.{2}([a-zA-Z0-9]).{4}([a-zA-Z0-9]).{3}([a-zA-Z0-9]).{2}([a-zA-Z0-9]).{1}([a-zA-Z0-9])") {
-            set $random_str $1$2$3$4$5;
+    location / {
+        # Parse sticky cookie if exists
+        set $has_sticky 0;
+        set $sticky_sub "";
+        set $sticky_domain "";
+        
+        if ($sticky_info ~ "^([^:]+):(.+)$") {
+            set $has_sticky 1;
+            set $sticky_sub $1;
+            set $sticky_domain $2;
         }
-    }
 
-    # Final fallback with mixed alphanumeric
-    if ($random_str = "") {
-        set $random_str "a1b2c";
-    }
-
-    # Convert to lowercase for consistency (optional)
-    set_by_lua_block $random_str_lower {
-        return string.lower(ngx.var.random_str)
-    }
-
-    # Select a fresh domain based on the kawal domain index
-    {% if item.0.kawal_domains is defined and item.0.fresh_domains is defined %}
-        {% set kawal_domains_list = item.0.kawal_domains %}
-        {% set fresh_domains_list = item.0.fresh_domains %}
-        {% set current_index = kawal_domains_list.index(item.1) %}
-        {% if current_index < fresh_domains_list|length %}
-            {% set fresh_domain = fresh_domains_list[current_index] %}
-        {% else %}
-            {% set fresh_domain = fresh_domains_list[0] %}
+        # Validate sticky domain is still in our list
+        set $valid_sticky 0;
+        {% if item.0.fresh_domains is defined %}
+        {% for fresh_domain in item.0.fresh_domains %}
+        if ($sticky_domain = "{{ fresh_domain }}") {
+            set $valid_sticky 1;
+        }
+        {% endfor %}
         {% endif %}
-    {% elif item.0.fresh_domains is defined %}
-        {# If only fresh_domains exists, use the first one #}
-        {% set fresh_domain = item.0.fresh_domains[0] %}
-    {% else %}
-        {# Fallback to a default #}
-        {% set fresh_domain = "example.com" %}
-    {% endif %}
-    
-    # Use the lowercase version if Lua is available, otherwise use as-is
-    return 302 https://$random_str_lower.{{ fresh_domain }}$request_uri;
+
+        # If valid sticky exists, use it
+        if ($has_sticky = 1) {
+            if ($valid_sticky = 1) {
+                return 302 https://$sticky_sub.$sticky_domain$request_uri;
+            }
+        }
+
+        # Generate new random subdomain
+        set $temp "${request_id}${msec}${remote_port}";
+        
+        # Extract alphanumeric characters with better distribution
+        if ($temp ~ "([0-9a-fA-F])([0-9])([0-9a-fA-F])([0-9])([0-9a-fA-F])") {
+            set $random_str "$1$2$3$4$5";
+        }
+        
+        # Second attempt with different pattern
+        if ($random_str = "") {
+            if ($temp ~ "^.{2}([0-9a-fA-F]).{1}([0-9]).{2}([0-9a-fA-F]).{1}([0-9]).{1}([0-9a-fA-F])") {
+                set $random_str "$1$2$3$4$5";
+            }
+        }
+        
+        # Final fallback
+        if ($random_str = "") {
+            # Use first 5 chars of request_id
+            if ($request_id ~ "^([0-9a-f]{5})") {
+                set $random_str $1;
+            }
+        }
+        
+        # Ultimate fallback
+        if ($random_str = "") {
+            set $random_str "x1y2z";
+        }
+
+        # Use split_clients result for fresh domain selection
+        {% if item.0.fresh_domains is defined and item.0.fresh_domains|length > 0 %}
+        set $selected_fresh $fresh_domain_{{ item.1 | replace('.', '_') }};
+        {% else %}
+        set $selected_fresh "example.com";
+        {% endif %}
+
+        # Set sticky cookie with secure attributes
+        # Cookie expires in 7 days (604800 seconds)
+        add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_${selected_fresh}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax; Domain=.{{ item.1 }}";
+        
+        # Log the assignment for debugging
+        access_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_sticky.log;
+        
+        return 302 https://$random_str.$selected_fresh$request_uri;
+    }
 }
