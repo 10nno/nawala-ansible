@@ -1,11 +1,10 @@
 ---
 vhosts:
-- name: dash86
-  main_domain: dashidn.co
+- name: slotogel
+  main_domain: slotogelasia.com
   kawal_domains:
-    - dashaktif24jam.com
-    - dash88aktif24jam.com
-    - dash88active.com
+    - slotogelpro.com
+    - slotogelmasuk.com
   fresh_domains:
-    - dashslotidr.com
-    - dash88slotidr.com
+    - slotogelpro.xyz
+    - slotogelproxy.com

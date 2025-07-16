@@ -14,10 +14,29 @@
     msg: "Cloudflare credentials file not found at /etc/letsencrypt/cloudflare.ini"
   when: not cloudflare_creds.stat.exists
 
-# Create kawal domain configurations
+# Create nginx conf.d directory
+- name: Ensure nginx conf.d directory exists
+  file:
+    path: /etc/nginx/conf.d
+    state: directory
+    mode: '0755'
+
+# Create map configuration files for each kawal domain
+- name: Create map configuration for kawal domains
+  template:
+    src: kawal-maps.conf.j2
+    dest: "/etc/nginx/conf.d/maps-{{ item.0.name }}-{{ item.1 | replace('.', '_') }}.conf"
+    mode: '0644'
+  with_subelements:
+    - "{{ vhosts }}"
+    - kawal_domains
+    - skip_missing: True
+  notify: reload nginx
+
+# Create kawal domain vhost configurations (without maps)
 - name: Create kawal domain vhost configurations
   template:
-    src: kawal-vhost.conf.j2
+    src: kawal-vhost-server-only.conf.j2
     dest: "/etc/nginx/sites-available/{{ item.0.name }}-kawal-{{ item.1 | replace('.', '_') }}.conf"
     mode: '0644'
   with_subelements:
@@ -25,6 +44,22 @@
     - kawal_domains
     - skip_missing: True
   notify: reload nginx
+
+# Generate SSL certificates for kawal domains
+- name: Generate SSL certificate for kawal domains
+  command: >
+    certbot certonly --dns-cloudflare
+    --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
+    -d {{ item.1 }}
+    --non-interactive
+    --agree-tos
+  args:
+    creates: "/etc/letsencrypt/live/{{ item.1 }}/fullchain.pem"
+  with_subelements:
+    - "{{ vhosts }}"
+    - kawal_domains
+    - skip_missing: True
+  register: kawal_ssl_generation
 
 # Generate SSL certificates for each fresh domain
 - name: Generate SSL certificate for fresh domains
@@ -43,13 +78,12 @@
     - skip_missing: True
   vars:
     fresh_domain: "{{ item.1 }}"
-  register: ssl_generation
+  register: fresh_ssl_generation
 
 - name: Wait for DNS propagation if SSL was generated
   pause:
     seconds: 30
-  when: ssl_generation.changed
-
+  when: kawal_ssl_generation.changed or fresh_ssl_generation.changed
 
 # Create fresh domain configurations
 - name: Create fresh domain vhost configurations
@@ -87,11 +121,41 @@
     - skip_missing: True
   notify: reload nginx
 
+# Check nginx configuration
 - name: Test nginx configuration
   command: nginx -t
   register: nginx_test
   changed_when: false
+  ignore_errors: yes
 
 - name: Display nginx test result
   debug:
     var: nginx_test.stdout_lines
+
+- name: Display nginx test errors if any
+  debug:
+    var: nginx_test.stderr_lines
+  when: nginx_test.rc != 0
+
+# Create a debug script
+- name: Create debug script for testing sticky cookies
+  copy:
+    dest: /usr/local/bin/debug-sticky.sh
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      DOMAIN="${1:-dashaktif24jam.com}"
+      echo "Testing sticky cookies for: $DOMAIN"
+      echo "================================"
+      echo ""
+      echo "1. Initial request (no cookie):"
+      RESPONSE=$(curl -s -I -k "https://$DOMAIN")
+      echo "$RESPONSE" | grep -E "(Location:|Set-Cookie:|X-Debug-)"
+      echo ""
+      echo "2. Extract cookie and test sticky behavior:"
+      COOKIE=$(echo "$RESPONSE" | grep -i "set-cookie:" | grep -o "sticky_[^;]*" | head -1)
+      echo "Cookie: $COOKIE"
+      echo ""
+      echo "3. Request with cookie:"
+      curl -s -I -k -H "Cookie: $COOKIE" "https://$DOMAIN" | grep -E "(Location:|X-Debug-)"
+      echo "================================"
