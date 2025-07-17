@@ -1,10 +1,10 @@
 ---
 vhosts:
-- name: slotogel
-  main_domain: slotogelasia.com
+- name: kdtoto
+  main_domain: kdangka.com
   kawal_domains:
-    - slotogelpro.com
-    - slotogelmasuk.com
+    - kdtotoactive.com
+    - kdtotoaktif.com
   fresh_domains:
-    - slotogelpro.xyz
-    - slotogelproxy.com
+    - kdtotoaman.com
+    - kdtototerpercaya.com

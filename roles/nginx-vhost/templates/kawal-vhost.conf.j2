@@ -1,31 +1,43 @@
- map $http_cookie $has_sticky_cookie {
-        default 0;
-        ~sticky_dash86=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_{{ fresh_domains[0] }}     1;
-        ~sticky_dash86=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_{{ fresh_domains[1] }}   1;
-    }
+map $http_cookie $has_sticky_cookie {
+    default 0;
+    {% for fresh_domain in item.0.fresh_domains %}
+    ~sticky_{{ item.0.name }}=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_{{ fresh_domain }}     1;
+    {% endfor %}
+}
 
-    map $http_cookie $sticky_sub {
-        default "";
-        ~sticky_dash86=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_.* $1;
-    }
+map $http_cookie $sticky_sub {
+    default "";
+    ~sticky_{{ item.0.name }}=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_.* $1;
+}
 
-    map $http_cookie $sticky_domain {
-        default "";
-        ~sticky_dash86=[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]_(.*) $1;
-    }
+map $http_cookie $sticky_domain {
+    default "";
+    ~sticky_{{ item.0.name }}=[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]_(.*) $1;
+}
 
-    # ✅ Distribute randomly based on last digit
-    map $msec$remote_port $selected_fresh {
-        ~.*[0-4]$ "{{ fresh_domains[0] }}";
-        ~.*[5-9]$ "{{ fresh_domains[1] }}";
-        default "{{ fresh_domains[0] }}";
-    }
+# ✅ Distribute randomly based on last digit
+map $msec$remote_port $selected_fresh {
+    {% set fresh_domains = item.0.fresh_domains %}
+    {% if fresh_domains|length == 2 %}
+    ~.*[0-4]$ "{{ fresh_domains[0] }}";
+    ~.*[5-9]$ "{{ fresh_domains[1] }}";
+    {% elif fresh_domains|length == 3 %}
+    ~.*[0-2]$ "{{ fresh_domains[0] }}";
+    ~.*[3-5]$ "{{ fresh_domains[1] }}";
+    ~.*[6-9]$ "{{ fresh_domains[2] }}";
+    {% else %}
+    {% for i in range(fresh_domains|length) %}
+    {% set start = (i * 10) // fresh_domains|length %}
+    {% set end = ((i + 1) * 10) // fresh_domains|length - 1 %}
+    ~.*[{{ start }}-{{ end }}]$ "{{ fresh_domains[i] }}";
+    {% endfor %}
+    {% endif %}
+    default "{{ fresh_domains[0] }}";
+}
 
 server {
-    listen 443;
+    listen 80;
     server_name {{ item.1 }};
-    
-    
     location / {
         set $temp "${request_id}${msec}${remote_port}";
         set $random_str "";
@@ -42,7 +54,7 @@ server {
         }
         
         # Extract from fallback if needed (not strict but safe)
-        if ($fallback_str ~ "^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f])") {
+        if ($fallback_str ~ "^([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f])") {
             set $random_str "$1$2$3";
         }
         
@@ -52,22 +64,12 @@ server {
         }
         
         # Use sticky cookie if available
-        if ($has_sticky_cookie_{{ item.1 | replace('.', '_') }}) {
-            return 302 https://$sticky_sub_{{ item.1 | replace('.', '_') }}.$sticky_domain_{{ item.1 | replace('.', '_') }}$request_uri;
+        if ($has_sticky_cookie) {
+            return 302 https://$sticky_sub.$sticky_domain$request_uri;
         }
         
         # Set cookie and redirect
-        add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_$selected_fresh_{{ item.1 | replace('.', '_') }}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax";
-        return 302 https://$random_str.$selected_fresh_{{ item.1 | replace('.', '_') }}$request_uri;
+        add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_${selected_fresh}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax";
+        return 302 https://$random_str.$selected_fresh$request_uri;
     }
-    
-    # Health check endpoint
-    location /health {
-        access_log off;
-        return 200 "OK\n";
-        add_header Content-Type text/plain;
-    }
-    
-    error_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_error.log;
-    access_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_access.log;
 }
