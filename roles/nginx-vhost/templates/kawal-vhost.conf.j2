@@ -36,7 +36,7 @@ map $msec$remote_port $selected_fresh {
 }
 
 server {
-    listen 80;
+    listen 443;
     server_name {{ item.1 }};
     location / {
         set $temp "${request_id}${msec}${remote_port}";
