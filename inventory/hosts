@@ -7,3 +7,4 @@ ansible_python_interpreter=/usr/bin/python3
 target_file = /home/promo/hosts
 old_line = 103.5.45.102 asialive88.pro
 new_line = 103.5.45.102 asialive88.com
+add_host = test test

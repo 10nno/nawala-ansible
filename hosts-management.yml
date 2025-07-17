@@ -5,7 +5,6 @@
   vars:
     # Default file path - can be overridden when running the playbook
     target_file: "/etc/hosts"
-  
   tasks:
     - name: Check if target file exists
       stat:
@@ -14,25 +13,27 @@
       tags:
         - cat_method
         - cat_display
+        - add_new
     
     - name: Display error if file doesn't exist
       debug:
         msg: "ERROR: File {{ target_file }} does not exist on the target host"
       when: not file_stat.stat.exists
     
+    # METHOD 1: Using slurp (commented out but available)
     # - name: Read file contents
     #   slurp:
     #     src: "{{ target_file }}"
     #   register: file_content
     #   when: file_stat.stat.exists
-    
     # - name: Display file contents
     #   debug:
     #     msg: "{{ file_content.content | b64decode }}"
-    #   when: 
+    #   when:
     #     - file_stat.stat.exists
     #     - file_content is defined
     
+    # METHOD 2: Using cat command
     - name: Alternative method - using cat command
       command: cat {{ target_file }}
       register: cat_output
@@ -45,13 +46,14 @@
     - name: Display cat output
       debug:
         var: cat_output.stdout_lines
-      when: 
+      when:
         - file_stat.stat.exists
         - cat_output is defined
       tags:
         - cat_method
         - cat_display
-        
+    
+    # METHOD 3: Replace line in file
     - name: Replace line in file
       lineinfile:
         path: "{{ target_file }}"
@@ -85,3 +87,73 @@
         - verify_output.rc == 0
       tags:
         - verify_edit
+    
+    # METHOD 4: Add new line to file
+    - name: Add new line to file
+      lineinfile:
+        path: "{{ target_file }}"
+        line: "{{ add_host }}"
+        insertafter: "{{ insert_after | default('EOF') }}"
+        backup: yes
+        create: yes
+      when:
+        - add_host is defined
+        - file_stat.stat.exists
+      tags:
+        - add_new
+        - add_host
+    
+    - name: Add new line at specific position
+      lineinfile:
+        path: "{{ target_file }}"
+        line: "{{ add_host }}"
+        insertbefore: "{{ insert_before }}"
+        backup: yes
+      when:
+        - add_host is defined
+        - insert_before is defined
+        - file_stat.stat.exists
+      tags:
+        - add_new
+        - add_host_before
+    
+    - name: Verify new line addition
+      command: grep "{{ add_host }}" {{ target_file }}
+      register: verify_add_output
+      when:
+        - add_host is defined
+        - file_stat.stat.exists
+      changed_when: false
+      failed_when: false
+      tags:
+        - add_new
+        - verify_add
+    
+    - name: Display add verification result
+      debug:
+        msg: "Line successfully added: {{ verify_add_output.stdout }}"
+      when:
+        - verify_add_output is defined
+        - verify_add_output.rc == 0
+      tags:
+        - add_new
+        - verify_add
+    
+    - name: Display final file contents after modifications
+      command: cat {{ target_file }}
+      register: final_cat_output
+      when: file_stat.stat.exists
+      changed_when: false
+      tags:
+        - add_new
+        - final_display
+    
+    - name: Show final file contents
+      debug:
+        var: final_cat_output.stdout_lines
+      when:
+        - file_stat.stat.exists
+        - final_cat_output is defined
+      tags:
+        - add_new
+        - final_display 
