@@ -45,7 +45,7 @@
 # Generate SSL certificates for each fresh domain
 - name: Generate SSL certificate for fresh domains
   command: >
-    certbot certonly --dns-cloudflare
+    certbotcf certonly --dns-cloudflare
     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
     -d {{ fresh_domain }}
     -d *.{{ fresh_domain }}
