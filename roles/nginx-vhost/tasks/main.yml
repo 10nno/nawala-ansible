@@ -61,10 +61,10 @@
     fresh_domain: "{{ item.1 }}"
   register: fresh_ssl_generation
 
-- name: Wait for DNS propagation if SSL was generated
-  pause:
-    seconds: 30
-  when: kawal_ssl_generation.changed or fresh_ssl_generation.changed
+# - name: Wait for DNS propagation if SSL was generated
+#   pause:
+#     seconds: 30
+#   when: kawal_ssl_generation.changed fresh_ssl_generation.changed
 
 # Create fresh domain configurations
 - name: Create fresh domain vhost configurations
@@ -117,39 +117,3 @@
   debug:
     var: nginx_test.stderr_lines
   when: nginx_test.rc != 0
-
-# Create debug script
-- name: Create debug script for testing sticky cookies
-  copy:
-    dest: /usr/local/bin/test-sticky.sh
-    mode: '0755'
-    content: |
-      #!/bin/bash
-      DOMAIN="${1:-dashaktif24jam.com}"
-      echo "Testing sticky cookies for: $DOMAIN"
-      echo "================================"
-      
-      # First request
-      echo -e "\n1. Initial request (no cookie):"
-      RESPONSE=$(curl -s -I -k "https://$DOMAIN")
-      echo "$RESPONSE" | grep -E "(Location:|Set-Cookie:|X-Debug-)"
-      
-      # Extract cookie and location
-      COOKIE=$(echo "$RESPONSE" | grep -i "set-cookie:" | grep -o "sticky_[^;]*" | head -1)
-      LOCATION=$(echo "$RESPONSE" | grep -i "location:" | awk '{print $2}' | tr -d '\r')
-      
-      echo -e "\nExtracted:"
-      echo "  Cookie: $COOKIE"
-      echo "  Redirect: $LOCATION"
-      
-      # Test with cookie
-      if [ -n "$COOKIE" ]; then
-          echo -e "\n2. Subsequent requests with cookie (should be same location):"
-          for i in {1..3}; do
-              echo -n "  Attempt $i: "
-              curl -s -I -k -H "Cookie: $COOKIE" "https://$DOMAIN" | grep -i "location:" | awk '{print $2}' | tr -d '\r'
-              sleep 0.2
-          done
-      fi
-      
-      echo -e "\n================================"

@@ -1,10 +1,11 @@
 ---
 vhosts:
-- name: kdtoto
-  main_domain: kdangka.com
+- name: dash86
+  main_domain: dashidn.co
   kawal_domains:
-    - kdtotoactive.com
-    - kdtotoaktif.com
+    - dashaktif24jam.com
+    - dash88aktif24jam.com
+    - dash88active.com
   fresh_domains:
-    - kdtotoaman.com
-    - kdtototerpercaya.com
+    - dashslotidr.com
+    - dash88slotidr.com
