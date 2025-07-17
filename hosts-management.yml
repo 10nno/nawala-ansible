@@ -92,36 +92,36 @@
     - name: Add new line to file
       lineinfile:
         path: "{{ target_file }}"
-        line: "{{ add_host }}"
+        line: "{{ add_line }}"
         insertafter: "{{ insert_after | default('EOF') }}"
         backup: yes
         create: yes
       when:
-        - add_host is defined
+        - add_line is defined
         - file_stat.stat.exists
       tags:
         - add_new
-        - add_host
+        - add_line
     
     - name: Add new line at specific position
       lineinfile:
         path: "{{ target_file }}"
-        line: "{{ add_host }}"
+        line: "{{ add_line }}"
         insertbefore: "{{ insert_before }}"
         backup: yes
       when:
-        - add_host is defined
+        - add_line is defined
         - insert_before is defined
         - file_stat.stat.exists
       tags:
         - add_new
-        - add_host_before
+        - add_line_before
     
     - name: Verify new line addition
-      command: grep "{{ add_host }}" {{ target_file }}
+      command: grep "{{ add_line }}" {{ target_file }}
       register: verify_add_output
       when:
-        - add_host is defined
+        - add_line is defined
         - file_stat.stat.exists
       changed_when: false
       failed_when: false
@@ -156,4 +156,94 @@
         - final_cat_output is defined
       tags:
         - add_new
-        - final_display 
+        - final_display
+    
+    # METHOD 5: Reload Nginx service
+    - name: Check nginx configuration syntax
+      command: nginx -t
+      register: nginx_config_check
+      changed_when: false
+      failed_when: false
+      tags:
+        - reload_nginx
+        - nginx_config
+    
+#    - name: Display nginx configuration check result
+#      debug:
+#        msg: "Nginx configuration check: {{ nginx_config_check.stderr }}"
+#      when: nginx_config_check is defined
+#      tags:
+#        - reload_nginx
+#        - nginx_config
+    
+    - name: Reload nginx service if configuration is valid
+      service:
+        name: nginx
+        state: reloaded
+      when: 
+        - nginx_config_check is defined
+        - nginx_config_check.rc == 0
+      tags:
+        - reload_nginx
+        - nginx_reload
+    
+    - name: Alternative reload method using systemctl
+      command: systemctl reload nginx
+      register: systemctl_reload
+      when: 
+        - nginx_config_check is defined
+        - nginx_config_check.rc == 0
+        - reload_method is defined
+        - reload_method == "systemctl"
+      changed_when: systemctl_reload.rc == 0
+      failed_when: systemctl_reload.rc != 0
+      tags:
+        - reload_nginx
+        - systemctl_reload
+    
+    - name: Check nginx service status after reload
+      service:
+        name: nginx
+        state: started
+      register: nginx_status
+      tags:
+        - reload_nginx
+        - nginx_status
+    
+    - name: Display nginx service status
+      debug:
+        msg: "Nginx service is running successfully"
+      when: nginx_status is defined and nginx_status.changed == false
+      tags:
+        - reload_nginx
+        - nginx_status
+    
+    - name: Force restart nginx if reload fails
+      service:
+        name: nginx
+        state: restarted
+      when:
+        - force_restart is defined
+        - force_restart == true
+      tags:
+        - reload_nginx
+        - force_restart
+    
+    - name: Verify nginx is listening on configured ports
+      command: netstat -tlnp | grep nginx
+      register: nginx_ports
+      changed_when: false
+      failed_when: false
+      tags:
+        - reload_nginx
+        - verify_ports
+    
+ #   - name: Display nginx listening ports
+ #     debug:
+ #       msg: "Nginx listening ports: {{ nginx_ports.stdout_lines }}"
+ #     when:
+ #       - nginx_ports is defined
+ #       - nginx_ports.stdout_lines is defined
+ #     tags:
+ #       - reload_nginx
+ #       - verify_ports

@@ -1,50 +1,25 @@
-map $http_cookie $has_sticky_cookie_{{ item.1 | replace('.', '_') }} {
-    default 0;
-    {% for fresh_domain in item.0.fresh_domains %}
-    ~sticky_{{ item.0.name }}=([a-zA-Z0-9]{5})_{{ fresh_domain | regex_escape() }}     1;
-    {% endfor %}
-}
+ map $http_cookie $has_sticky_cookie {
+        default 0;
+        ~sticky_dash86=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_{{ fresh_domains[0] }}     1;
+        ~sticky_dash86=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_{{ fresh_domains[1] }}   1;
+    }
 
-map $http_cookie $sticky_sub_{{ item.1 | replace('.', '_') }} {
-    default "";
-    ~sticky_{{ item.0.name }}=([a-zA-Z0-9]{5})_.* $1;
-}
+    map $http_cookie $sticky_sub {
+        default "";
+        ~sticky_dash86=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_.* $1;
+    }
 
-map $http_cookie $sticky_domain_{{ item.1 | replace('.', '_') }} {
-    default "";
-    ~sticky_{{ item.0.name }}=[a-zA-Z0-9]{5}_(.*) $1;
-}
+    map $http_cookie $sticky_domain {
+        default "";
+        ~sticky_dash86=[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]_(.*) $1;
+    }
 
-# Distribute randomly based on last digit
-map $msec$remote_port $selected_fresh_{{ item.1 | replace('.', '_') }} {
-    {% set fresh_domains = item.0.fresh_domains %}
-    {% set domains_count = fresh_domains | length %}
-    {% if domains_count == 2 %}
-    ~.*[0-4]$ "{{ fresh_domains[0] }}";
-    ~.*[5-9]$ "{{ fresh_domains[1] }}";
-    {% elif domains_count == 3 %}
-    ~.*[0-2]$ "{{ fresh_domains[0] }}";
-    ~.*[3-5]$ "{{ fresh_domains[1] }}";
-    ~.*[6-9]$ "{{ fresh_domains[2] }}";
-    {% elif domains_count == 4 %}
-    ~.*[0-1]$ "{{ fresh_domains[0] }}";
-    ~.*[2-4]$ "{{ fresh_domains[1] }}";
-    ~.*[5-7]$ "{{ fresh_domains[2] }}";
-    ~.*[8-9]$ "{{ fresh_domains[3] }}";
-    {% else %}
-        {% for i in range(domains_count) %}
-            {% set start_digit = (i * 10) // domains_count %}
-            {% set end_digit = ((i + 1) * 10) // domains_count - 1 %}
-            {% if start_digit == end_digit %}
-    ~.*{{ start_digit }}$ "{{ fresh_domains[i] }}";
-            {% else %}
-    ~.*[{{ start_digit }}-{{ end_digit }}]$ "{{ fresh_domains[i] }}";
-            {% endif %}
-        {% endfor %}
-    {% endif %}
-    default "{{ fresh_domains[0] if fresh_domains else 'example.com' }}";
-}
-
+    # ✅ Distribute randomly based on last digit
+    map $msec$remote_port $selected_fresh {
+        ~.*[0-4]$ "{{ fresh_domains[0] }}";
+        ~.*[5-9]$ "{{ fresh_domains[1] }}";
+        default "{{ fresh_domains[0] }}";
+    }
 
 server {
     listen 443;
