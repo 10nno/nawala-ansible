@@ -1,11 +1,10 @@
 ---
 vhosts:
-- name: dash86
-  main_domain: dashidn.co
+- name: santagg
+  main_domain: santagg.com
   kawal_domains:
-    - dashaktif24jam.com
-    - dash88aktif24jam.com
-    - dash88active.com
+    - santagg.city
+    - santaggasia.click
   fresh_domains:
-    - dashslotidr.com
-    - dash88slotidr.com
+    - santaggwin.com
+    - santagg.co

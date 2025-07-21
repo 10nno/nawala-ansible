@@ -92,36 +92,36 @@
     - name: Add new line to file
       lineinfile:
         path: "{{ target_file }}"
-        line: "{{ add_line }}"
+        line: "{{ add_host }}"
         insertafter: "{{ insert_after | default('EOF') }}"
         backup: yes
         create: yes
       when:
-        - add_line is defined
+        - add_host is defined
         - file_stat.stat.exists
       tags:
         - add_new
-        - add_line
+        - add_host
     
     - name: Add new line at specific position
       lineinfile:
         path: "{{ target_file }}"
-        line: "{{ add_line }}"
+        line: "{{ add_host }}"
         insertbefore: "{{ insert_before }}"
         backup: yes
       when:
-        - add_line is defined
+        - add_host is defined
         - insert_before is defined
         - file_stat.stat.exists
       tags:
         - add_new
-        - add_line_before
+        - add_host_before
     
     - name: Verify new line addition
-      command: grep "{{ add_line }}" {{ target_file }}
+      command: grep "{{ add_host }}" {{ target_file }}
       register: verify_add_output
       when:
-        - add_line is defined
+        - add_host is defined
         - file_stat.stat.exists
       changed_when: false
       failed_when: false
