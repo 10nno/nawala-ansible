@@ -84,23 +84,6 @@
     - skip_missing: True
   notify: reload nginx
 
-# # Generate SSL certificates for kawal domains
-# - name: Generate SSL certificate for kawal domains
-#   command: >
-#     certbotcf certonly --dns-cloudflare
-#     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
-#     -d {{ item.1 }}
-#     --non-interactive
-#     --agree-tos
-#   args:
-#     creates: "/etc/letsencrypt/live/{{ item.1 }}/fullchain.pem"
-#   with_subelements:
-#     - "{{ vhosts }}"
-#     - kawal_domains
-#     - skip_missing: True
-#   register: kawal_ssl_generation
-
-# Generate SSL certificates for each fresh domain
 - name: Generate SSL certificate for fresh domains
   command: >
     certbotcf certonly --dns-cloudflare
