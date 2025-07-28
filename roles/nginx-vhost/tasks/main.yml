@@ -13,6 +13,64 @@
   fail:
     msg: "Cloudflare credentials file not found at /etc/letsencrypt/cloudflare.ini"
   when: not cloudflare_creds.stat.exists
+# Add this task to roles/nginx-vhost/tasks/main.yml at the beginning, before the SSL certificate generation
+
+- name: Extract canonical domain from origin
+  block:
+    - name: Fetch HTML content from origin domain
+      uri:
+        url: "https://{{ item.main_domain }}"
+        method: GET
+        return_content: yes
+        validate_certs: yes
+        timeout: 30
+      register: origin_response
+      loop: "{{ vhosts }}"
+      when: item.canon_domain is not defined
+      ignore_errors: yes
+
+    - name: Extract canonical domain from HTML
+      set_fact:
+        canon_domain_{{ item.item.name }}: "{{ origin_response.results[index].content | regex_search('<link rel=\"canonical\" href=\"([^\"]+)\"', '\\1') | first | regex_replace('https?://([^/]+).*', '\\1') }}"
+      loop: "{{ origin_response.results }}"
+      loop_control:
+        index_var: index
+      when: 
+        - item.item.canon_domain is not defined
+        - item.status == 200
+        - item.content is defined
+      vars:
+        item: "{{ item }}"
+
+    - name: Update vhosts with extracted canonical domains
+      set_fact:
+        vhosts: "{{ vhosts | map('combine', {'canon_domain': lookup('vars', 'canon_domain_' + item.name, default=omit)}) | list }}"
+      loop: "{{ vhosts }}"
+      when: lookup('vars', 'canon_domain_' + item.name, default=None) is not none
+
+# Alternative approach using shell command (closer to your original curl command)
+- name: Extract canonical domain using shell (alternative method)
+  shell: |
+    curl -s https://{{ item.main_domain }} | grep -oP '(?<=<link rel="canonical" href=")[^"]*' | sed -E 's|https?://([^/]+).*|\1|'
+  register: canon_domain_shell
+  loop: "{{ vhosts }}"
+  when: 
+    - item.canon_domain is not defined
+    - use_shell_method | default(false)
+  changed_when: false
+  ignore_errors: yes
+
+- name: Set canonical domain from shell output
+  set_fact:
+    vhosts: "{{ vhosts[:index] + [item | combine({'canon_domain': canon_domain_shell.results[index].stdout})] + vhosts[index+1:] }}"
+  loop: "{{ vhosts }}"
+  loop_control:
+    index_var: index
+  when:
+    - use_shell_method | default(false)
+    - item.canon_domain is not defined
+    - canon_domain_shell.results[index].stdout != ""
+    - canon_domain_shell.results[index].rc == 0
 
 # Create kawal domain configurations (all-in-one)
 - name: Create kawal domain vhost configurations

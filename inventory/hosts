@@ -1,5 +1,5 @@
 [nawala]
-103.35.205.238
+103.35.205.237
 [nawala:vars]
 ansible_user=root
 ansible_port=2222

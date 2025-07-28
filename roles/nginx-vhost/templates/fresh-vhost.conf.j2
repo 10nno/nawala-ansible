@@ -33,6 +33,7 @@ server {
         sub_filter 'http://{{ item.0.canon_domain }}' '$scheme://$host';
         sub_filter 'https://{{ item.0.canon_domain }}' '$scheme://$host';
         {% endif %}
+        sub_filter '{{ item.0.main_domain }}' '{{ item.0.canon_domain }}';
     }
 
     error_log on;
