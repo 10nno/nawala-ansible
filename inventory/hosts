@@ -1,10 +1,6 @@
 [nawala]
-103.35.205.237
+103.35.205.238
 [nawala:vars]
 ansible_user=root
 ansible_port=2222
 ansible_python_interpreter=/usr/bin/python3
-target_file = /home/promo/hosts
-old_line = 103.35.204.46 idngg.com
-new_line = 103.35.204.46 idngg.com
-add_host = 1.1.1.1 test
