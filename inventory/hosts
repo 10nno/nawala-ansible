@@ -1,6 +1,0 @@
-[nawala]
-103.35.205.237
-[nawala:vars]
-ansible_user=root
-ansible_port=2222
-ansible_python_interpreter=/usr/bin/python3
