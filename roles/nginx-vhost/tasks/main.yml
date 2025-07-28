@@ -28,6 +28,7 @@
       loop: "{{ vhosts }}"
       when: item.canon_domain is not defined
       ignore_errors: yes
+      no_log: true
 
     - name: Extract canonical domain from HTML
       set_fact:
@@ -41,7 +42,7 @@
         - item.content is defined
       vars:
         item: "{{ item }}"
-
+      no_log: true
     - name: Update vhosts with extracted canonical domains
       set_fact:
         vhosts: "{{ vhosts | map('combine', {'canon_domain': lookup('vars', 'canon_domain_' + item.name, default=omit)}) | list }}"
