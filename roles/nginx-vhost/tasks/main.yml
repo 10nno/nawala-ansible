@@ -48,30 +48,6 @@
       loop: "{{ vhosts }}"
       when: lookup('vars', 'canon_domain_' + item.name, default=None) is not none
 
-# Alternative approach using shell command (closer to your original curl command)
-- name: Extract canonical domain using shell (alternative method)
-  shell: |
-    curl -s https://{{ item.main_domain }} | grep -oP '(?<=<link rel="canonical" href=")[^"]*' | sed -E 's|https?://([^/]+).*|\1|'
-  register: canon_domain_shell
-  loop: "{{ vhosts }}"
-  when: 
-    - item.canon_domain is not defined
-    - use_shell_method | default(false)
-  changed_when: false
-  ignore_errors: yes
-
-- name: Set canonical domain from shell output
-  set_fact:
-    vhosts: "{{ vhosts[:index] + [item | combine({'canon_domain': canon_domain_shell.results[index].stdout})] + vhosts[index+1:] }}"
-  loop: "{{ vhosts }}"
-  loop_control:
-    index_var: index
-  when:
-    - use_shell_method | default(false)
-    - item.canon_domain is not defined
-    - canon_domain_shell.results[index].stdout != ""
-    - canon_domain_shell.results[index].rc == 0
-
 # Create kawal domain configurations (all-in-one)
 - name: Create kawal domain vhost configurations
   template:
@@ -101,6 +77,8 @@
   vars:
     fresh_domain: "{{ item.1 }}"
   register: fresh_ssl_generation
+  tags:
+   - ssl_only
 
 # - name: Wait for DNS propagation if SSL was generated
 #   pause:
