@@ -1,0 +1,234 @@
+---
+- name: Investigate and Fix Redirect Flow
+  hosts: nawala
+  become: yes
+  vars_files:
+    - "{{ vhost_config_file | default('vhost_config.yml') }}"
+  vars:
+    test_token: "c3f89cbb48be6309b15fb84d65a6b81d"
+  
+  tasks:
+    - name: Create test script for complete redirect flow
+      copy:
+        dest: /tmp/test_redirect_flow.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          
+          echo "=== COMPLETE REDIRECT FLOW TEST ==="
+          echo ""
+          
+          test_complete_flow() {
+              local vhost_name="$1"
+              local kawal_domain="$2"
+              local fresh_domain="$3"
+              local main_domain="$4"
+              local token="$5"
+              
+              echo "Testing vhost: $vhost_name"
+              echo "----------------------------------------"
+              
+              # Step 1: Test kawal domain redirect
+              echo "1. Testing kawal domain: https://$kawal_domain/auto-login/?token=$token"
+              kawal_response=$(curl -s -I -k --max-redirs 0 \
+                  "https://$kawal_domain/auto-login/?token=$token")
+              
+              kawal_status=$(echo "$kawal_response" | grep -E "^HTTP" | awk '{print $2}')
+              kawal_location=$(echo "$kawal_response" | grep -i "^location:" | sed 's/location: //i' | tr -d '\r')
+              
+              echo "   Status: $kawal_status"
+              echo "   Location: $kawal_location"
+              
+              if [[ ! "$kawal_location" =~ $fresh_domain ]]; then
+                  echo "   ERROR: Not redirecting to fresh domain!"
+              fi
+              
+              # Step 2: Test fresh domain directly
+              echo ""
+              echo "2. Testing fresh domain directly: https://test.$fresh_domain/auto-login/?token=$token"
+              fresh_response=$(curl -s -I -k -H "Host: $main_domain" \
+                  "https://test.$fresh_domain/auto-login/?token=$token")
+              
+              fresh_status=$(echo "$fresh_response" | grep -E "^HTTP" | tail -1 | awk '{print $2}')
+              echo "   Status: $fresh_status"
+              
+              # Step 3: Check what paths exist on origin
+              echo ""
+              echo "3. Checking available paths on origin: $main_domain"
+              
+              # Try common auth endpoints
+              for path in "/" "/login" "/auth" "/signin" "/auto-login" "/autologin" "/sso"; do
+                  status=$(curl -s -o /dev/null -w "%{http_code}" -k "https://$main_domain$path")
+                  echo "   $path -> $status"
+              done
+              
+              # Step 4: Test with actual browser-like request
+              echo ""
+              echo "4. Testing full request with cookies:"
+              cookie_jar="/tmp/cookies_test_$$.txt"
+              
+              # First, get the redirect from kawal
+              curl -s -k -c "$cookie_jar" -o /dev/null \
+                  "https://$kawal_domain/auto-login/?token=$token"
+              
+              # Extract the fresh domain URL from cookies or previous response
+              if [ -n "$kawal_location" ]; then
+                  echo "   Following to: $kawal_location"
+                  final_response=$(curl -s -k -b "$cookie_jar" -c "$cookie_jar" \
+                      -H "User-Agent: Mozilla/5.0" \
+                      -w "\nFINAL_URL: %{url_effective}\nSTATUS: %{http_code}\n" \
+                      -L "$kawal_location")
+                  
+                  echo "$final_response" | grep -E "FINAL_URL:|STATUS:"
+                  
+                  # Check if we're at a login page
+                  if echo "$final_response" | grep -qi "login\|sign.?in\|authenticate"; then
+                      echo "   WARNING: Ended up at login page"
+                  fi
+              fi
+              
+              rm -f "$cookie_jar"
+              echo ""
+          }
+          
+          {% for vhost in vhosts %}
+          {% if vhost.kawal_domains is defined and vhost.kawal_domains|length > 0 %}
+          test_complete_flow "{{ vhost.name }}" \
+                            "{{ vhost.kawal_domains[0] }}" \
+                            "{{ vhost.fresh_domains[0] }}" \
+                            "{{ vhost.main_domain }}" \
+                            "{{ test_token }}"
+          {% endif %}
+          {% endfor %}
+      tags:
+        - test_flow
+
+    - name: Run test script
+      command: /tmp/test_redirect_flow.sh
+      register: flow_test
+      changed_when: false
+      tags:
+        - test_flow
+    
+    - name: Display flow test results
+      debug:
+        var: flow_test.stdout_lines
+      tags:
+        - test_flow
+    
+    - name: Check current nginx configuration for both domains
+      shell: |
+        echo "=== NGINX CONFIGURATION CHECK ==="
+        echo ""
+        echo "KAWAL DOMAIN CONFIGS:"
+        echo "--------------------"
+        for conf in /etc/nginx/sites-enabled/*kawal*.conf; do
+            echo "File: $conf"
+            grep -A2 -B2 "return 302\|location /" "$conf" | head -20
+            echo ""
+        done
+        
+        echo "FRESH DOMAIN CONFIGS:"
+        echo "--------------------"
+        for conf in /etc/nginx/sites-enabled/*fresh*.conf; do
+            echo "File: $conf"
+            grep -A5 "location.*auto-login\|location /" "$conf" | head -20
+            echo ""
+        done
+      register: nginx_config
+      changed_when: false
+      tags:
+        - check_config
+    
+    - name: Display nginx configuration
+      debug:
+        var: nginx_config.stdout_lines
+      tags:
+        - check_config
+    
+    - name: Create proxy test script
+      copy:
+        dest: /tmp/test_proxy.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          
+          echo "=== DIRECT PROXY TEST ==="
+          
+          test_proxy() {
+              local fresh_domain="$1"
+              local main_domain="$2"
+              local path="$3"
+              
+              echo "Testing proxy: https://test.$fresh_domain$path -> http://$main_domain$path"
+              
+              # Test the proxy directly
+              response=$(curl -s -k -w "\nSTATUS: %{http_code}\n" \
+                  -H "Host: $main_domain" \
+                  "https://test.$fresh_domain$path")
+              
+              echo "$response" | tail -5
+              echo ""
+          }
+          
+          {% for vhost in vhosts %}
+          {% if vhost.fresh_domains is defined and vhost.fresh_domains|length > 0 %}
+          test_proxy "{{ vhost.fresh_domains[0] }}" "{{ vhost.main_domain }}" "/"
+          test_proxy "{{ vhost.fresh_domains[0] }}" "{{ vhost.main_domain }}" "/auto-login/?token=test"
+          {% endif %}
+          {% endfor %}
+      tags:
+        - test_proxy
+
+    - name: Run proxy test script
+      command: /tmp/test_proxy.sh
+      register: proxy_test
+      changed_when: false
+      tags:
+        - test_proxy
+    
+    - name: Display proxy test results
+      debug:
+        var: proxy_test.stdout_lines
+      tags:
+        - test_proxy
+    
+    - name: Create diagnostic summary
+      shell: |
+        echo "=== DIAGNOSTIC SUMMARY ==="
+        echo ""
+        echo "1. Kawal domains configured:"
+        ls -la /etc/nginx/sites-enabled/*kawal*.conf 2>/dev/null | wc -l
+        
+        echo ""
+        echo "2. Fresh domains configured:"
+        ls -la /etc/nginx/sites-enabled/*fresh*.conf 2>/dev/null | wc -l
+        
+        echo ""
+        echo "3. SSL certificates:"
+        fresh_domains="{{ vhosts | map(attribute='fresh_domains') | flatten | join('|') }}"
+        ls -la /etc/letsencrypt/live/ | grep -E "($fresh_domains)" || echo "No matching certificates found"
+        
+        echo ""
+        echo "4. Recent nginx errors:"
+        tail -10 /var/log/nginx/error.log 2>/dev/null | grep -v "SSL_do_handshake" || echo "No recent errors"
+      register: diagnostic
+      changed_when: false
+      tags:
+        - diagnostic
+    
+    - name: Display diagnostic summary
+      debug:
+        var: diagnostic.stdout_lines
+      tags:
+        - diagnostic
+    
+    - name: Clean up test scripts
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/test_redirect_flow.sh
+        - /tmp/test_proxy.sh
+      tags:
+        - cleanup

@@ -30,24 +30,61 @@
       ignore_errors: yes
       no_log: true
 
-    - name: Extract canonical domain from HTML
-      set_fact:
-        canon_domain_{{ item.item.name }}: "{{ origin_response.results[index].content | regex_search('<link rel=\"canonical\" href=\"([^\"]+)\"', '\\1') | first | regex_replace('https?://([^/]+).*', '\\1') }}"
-      loop: "{{ origin_response.results }}"
-      loop_control:
-        index_var: index
-      when: 
-        - item.item.canon_domain is not defined
-        - item.status == 200
-        - item.content is defined
-      vars:
-        item: "{{ item }}"
-      no_log: true
-    - name: Update vhosts with extracted canonical domains
-      set_fact:
-        vhosts: "{{ vhosts | map('combine', {'canon_domain': lookup('vars', 'canon_domain_' + item.name, default=omit)}) | list }}"
-      loop: "{{ vhosts }}"
-      when: lookup('vars', 'canon_domain_' + item.name, default=None) is not none
+    # - name: Extract canonical domain from HTML
+    #   set_fact:
+    #     canon_domain_{{ item.item.name }}: "{{ origin_response.results[index].content | regex_search('<link rel=\"canonical\" href=\"([^\"]+)\"', '\\1') | first | regex_replace('https?://([^/]+).*', '\\1') }}"
+    #   loop: "{{ origin_response.results }}"
+    #   loop_control:
+    #     index_var: index
+    #   when: 
+    #     - item.item.canon_domain is not defined
+    #     - item.status == 200
+    #     - item.content is defined
+    #   vars:
+    #     item: "{{ item }}"
+    #   no_log: true
+    # - name: Update vhosts with extracted canonical domains
+    #   set_fact:
+    #     vhosts: "{{ vhosts | map('combine', {'canon_domain': lookup('vars', 'canon_domain_' + item.name, default=omit)}) | list }}"
+    #   loop: "{{ vhosts }}"
+    #   when: lookup('vars', 'canon_domain_' + item.name, default=None) is not none
+- name: Extract canonical domain using shell
+  shell: |
+    curl -s https://{{ item.main_domain }} | grep -oP '(?<=<link rel="canonical" href=")[^"]*' | sed -E 's|https?://([^/]+).*|\1|' || echo ""
+  register: canon_domain_shell
+  loop: "{{ vhosts }}"
+  when: 
+    - item.canon_domain is not defined
+    - use_shell_method | default(false)
+  changed_when: false
+  ignore_errors: yes
+  no_log: true
+
+- name: Debug shell output structure
+  debug:
+    msg: "Index: {{ index }}, Name: {{ item.name }}, Stdout: {{ canon_domain_shell.results[index].stdout | default('empty') }}"
+  loop: "{{ vhosts }}"
+  loop_control:
+    index_var: index
+  when:
+    - use_shell_method | default(false)
+    - debug_canon_extraction | default(false)
+
+- name: Set canonical domain from shell output
+  set_fact:
+    vhosts_updated: "{{ vhosts_updated | default([]) + [item | combine({'canon_domain': canon_domain_shell.results[index].stdout}) if (item.canon_domain is not defined and canon_domain_shell.results[index].stdout is defined and canon_domain_shell.results[index].stdout != '' and canon_domain_shell.results[index].rc == 0) else item] }}"
+  loop: "{{ vhosts }}"
+  loop_control:
+    index_var: index
+  when:
+    - use_shell_method | default(false)
+
+- name: Update vhosts with shell results
+  set_fact:
+    vhosts: "{{ vhosts_updated }}"
+  when:
+    - use_shell_method | default(false)
+    - vhosts_updated is defined
 
 # Create kawal domain configurations (all-in-one)
 - name: Create kawal domain vhost configurations

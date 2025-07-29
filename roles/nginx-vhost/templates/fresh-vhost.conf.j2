@@ -11,34 +11,111 @@ server {
 
     server_name *.{{ item.1 }};
 
+    # Increase buffer sizes
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
+
     location / {
-        proxy_ssl_server_name on;
-        proxy_pass http://{{ item.0.main_domain }}/;
-        proxy_set_header Accept-Encoding "";
-        proxy_set_header X-Forwarded-Proto $scheme;
+        # CRITICAL: Intercept redirects from upstream
+        proxy_intercept_errors on;
+        
+        # Pass to origin
+        proxy_pass http://{{ item.0.main_domain }};
+        
+        # Set headers - use the origin domain as Host
+        proxy_set_header Host {{ item.0.main_domain }};
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-Host $host;
+        
+        # Pass cookies and auth
         proxy_set_header Cookie $http_cookie;
-
-        # Enable sub_filter module
-        sub_filter_once off;
-        sub_filter 'http://{{ item.0.main_domain }}' '$host';
-        sub_filter 'action="http://{{ item.0.main_domain }}/register"' 'action="https://$host/register"';
-        sub_filter_types text/html text/javascript application/javascript;
-
-        proxy_redirect http://{{ item.0.main_domain }}/ /;
-
-        {% if item.0.canon_domain is defined %}
-        sub_filter 'http://{{ item.0.canon_domain }}' '$scheme://$host';
-        sub_filter 'https://{{ item.0.canon_domain }}' '$scheme://$host';
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Accept-Encoding "";
+        
+        # CRITICAL: Rewrite ALL redirects from origin to stay on fresh domain
+        # This prevents the origin from redirecting back to unovegas.us
+        proxy_redirect http://{{ item.0.main_domain }}/ https://$host/;
+        proxy_redirect https://{{ item.0.main_domain }}/ https://$host/;
+        proxy_redirect http://{{ item.0.main_domain }} https://$host/;
+        proxy_redirect https://{{ item.0.main_domain }} https://$host/;
+        
+        # Also handle www variants
+        proxy_redirect http://www.{{ item.0.main_domain }}/ https://$host/;
+        proxy_redirect https://www.{{ item.0.main_domain }}/ https://$host/;
+        
+        {% if item.0.canon_domain is defined and item.0.canon_domain != item.0.main_domain %}
+        # Handle canonical domain redirects
+        proxy_redirect http://{{ item.0.canon_domain }}/ https://$host/;
+        proxy_redirect https://{{ item.0.canon_domain }}/ https://$host/;
+        proxy_redirect http://{{ item.0.canon_domain }} https://$host/;
+        proxy_redirect https://{{ item.0.canon_domain }} https://$host/;
+        proxy_redirect http://www.{{ item.0.canon_domain }}/ https://$host/;
+        proxy_redirect https://www.{{ item.0.canon_domain }}/ https://$host/;
         {% endif %}
-        sub_filter '{{ item.0.main_domain }}' '{{ item.0.canon_domain }}';
+        
+        # Default redirect handler for any domain
+        proxy_redirect ~^https?://[^/]+/(.*)$ https://$host/$1;
+        
+        # Cookie domain rewriting - IMPORTANT for session handling
+        proxy_cookie_domain {{ item.0.main_domain }} $host;
+        proxy_cookie_domain .{{ item.0.main_domain }} .$host;
+        proxy_cookie_domain www.{{ item.0.main_domain }} $host;
+        
+        {% if item.0.canon_domain is defined and item.0.canon_domain != item.0.main_domain %}
+        proxy_cookie_domain {{ item.0.canon_domain }} $host;
+        proxy_cookie_domain .{{ item.0.canon_domain }} .$host;
+        proxy_cookie_domain www.{{ item.0.canon_domain }} $host;
+        {% endif %}
+        
+        # Ensure cookie paths work
+        proxy_cookie_path / /;
+        
+        # Content rewriting to fix links and forms
+        sub_filter_once off;
+        sub_filter_types text/html text/css text/javascript application/javascript application/json text/xml;
+        
+        # Replace all instances of the origin domain in content
+        sub_filter '{{ item.0.main_domain }}' '$host';
+        sub_filter 'http://{{ item.0.main_domain }}' 'https://$host';
+        sub_filter 'https://{{ item.0.main_domain }}' 'https://$host';
+        sub_filter '//{{ item.0.main_domain }}' '//$host';
+        
+        {% if item.0.canon_domain is defined %}
+        sub_filter '{{ item.0.canon_domain }}' '$host';
+        sub_filter 'http://{{ item.0.canon_domain }}' 'https://$host';
+        sub_filter 'https://{{ item.0.canon_domain }}' 'https://$host';
+        sub_filter '//{{ item.0.canon_domain }}' '//$host';
+        {% endif %}
+        
+        # Fix absolute URLs in JavaScript
+        sub_filter "window.location = 'http" "window.location = 'https";
+        sub_filter 'window.location.href = "http' 'window.location.href = "https';
+        sub_filter "window.location.href = 'http" "window.location.href = 'https";
+        
+        # Handle meta refresh tags
+        sub_filter 'content="0; url=http://{{ item.0.main_domain }}' 'content="0; url=https://$host';
+        sub_filter 'content="0; url=https://{{ item.0.main_domain }}' 'content="0; url=https://$host';
+        
+        {% if item.0.canon_domain is defined %}
+        sub_filter 'content="0; url=http://{{ item.0.canon_domain }}' 'content="0; url=https://$host';
+        sub_filter 'content="0; url=https://{{ item.0.canon_domain }}' 'content="0; url=https://$host';
+        {% endif %}
+    }
+    
+    # Special location for debugging redirects
+    location = /debug-redirect {
+        add_header Content-Type text/plain;
+        return 200 "Current host: $host\nRequest URI: $request_uri\nHTTP Host: $http_host\n";
     }
 
-    error_log on;
-    error_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_error.log;
+    # Error and access logs
+    error_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_error.log debug;
+    access_log /var/log/nginx/{{ item.0.name }}_{{ item.1 | replace('.', '_') }}_access.log;
 
+    # Gzip settings
     gzip on;
     gzip_disable "msie6";
     gzip_vary on;
