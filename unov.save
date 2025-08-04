@@ -1,0 +1,306 @@
+<html>
+<title>Akses Terbatas</title>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link rel="icon" href="https://unovegas.us/assets/img/restriction/favicon.png" type="image/x-icon" />
+</head>
+<style type="text/css">
+
+body{
+  margin: 0 !important;
+}
+.restrict-bg{
+background: #000000 url('https://unovegas.us/assets/img/restriction/restrict-bg.png') top center no-repeat;
+ border-top: 5px solid #ff0000;
+ width: 100%;
+ display:
+ background-size: 100% 100%; inline-block !important;
+
+}
+
+.container-restrict{
+  width: 1000px;
+  height: 70px;
+  margin: 0 auto;
+}
+
+.h-one{
+  color: white;
+  text-align: center;
+  font-family: Century Gothic;
+  font-size: 60px;
+  font-weight: bold;
+  text-shadow: 3px 2px #000000;
+  margin-bottom: 0px;
+  letter-spacing: 3px;
+}
+
+ul {
+  list-style-type: none;
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  text-align: center;
+  width: 825px;
+  border-bottom: 2px solid #ff0000;
+  text-shadow: 3px 2px #000000;
+  font-size: 21px;
+}
+
+li {
+  float: left;
+  font-family: tahoma;
+}
+
+li a {
+  display: block;
+  color: white;
+  text-align: center;
+  padding: 7px 16px;
+  text-decoration: none;
+}
+
+.flex-container {
+  display: -webkit-flex;
+  display: flex;
+  height: 250px;
+  margin-top: 30px;
+  text-shadow: 2.5px 2px #000;
+}
+
+.flex-item {
+  width: 33.33333%;
+  float: left;
+  color: white;
+  font-family: Arial;
+  margin-right: 40px;
+}
+
+.logo-image{
+  width: 45%;
+}
+
+.indonesia1, .malaysia1, .china1, .thai1, .viet1, .korean1{
+  height:20px;width:40px;margin-left:10px;box-shadow: 2px 2px black;
+}
+.indonesia2, .indonesia3, .malaysia2, .malaysia3, .china2, .china3, .thai2,
+.thai3, .viet2, .viet3, .korean2, .korean3 {
+    font-family:Century Gothic;
+}
+
+
+/*new*/
+.base-div{
+  width: 100%;
+}
+
+.img-bg{
+  width: 100%;
+  height: 100%;
+
+}
+.container{
+  width: 1150px;
+  margin: 0 auto;
+}
+
+.logo-container{
+  width: 378px;
+  height: 124px;
+  margin: 0 auto;
+  text-align: center;
+  padding-top: 50px;
+}
+
+.header-container{
+  width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.title-text{
+  color: #fff;
+  font-family: Century Gothic;
+  font-size: 60px;
+  text-shadow: 2px 2px #000000;
+  margin: 0;
+}
+
+.footer-restrict-img{
+  background: #1d1d1d;
+  width: 45%;
+  margin: 1.5% 26%;
+}
+
+.footer-container {
+    width: 100%;
+    bottom: 0;
+    height: 9.5%;
+    background: #1d1d1d;
+}
+.footer-border1{
+  border-top: 2px solid #ff0000;
+}
+
+.img-width {
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media  screen and (min-width: 1024px) and (max-height: 900px)
+{
+  .container{
+    width: 900px;
+  }
+
+  .restrict-bg{
+   background: #000000 url('https://unovegas.us/assets/img ?>/restriction/restrict-bg.png') top center no-repeat;
+   border-top: 5px solid #ff0000;
+   display: inline-block !important;
+   background-size: 100% 100%;
+ }
+
+}
+
+@media  screen and (min-width: 1440px) and (min-height: 900px)
+{
+  .container {
+    width: 70%;
+    margin: 0 auto;
+    height: 90%;
+  }
+}
+
+@media  screen and (min-width: 1600px) and (min-height: 900px)
+{
+  .container {
+    width: 70%;
+    margin: 0 auto;
+    height: 88%;
+  }
+  .footer-container {
+    width: 100%;
+    bottom: 0;
+    height: 11.5%;
+    background: #1d1d1d;
+  }
+  .footer-restrict-img {
+    background: #1d1d1d;
+    width: 40%;
+    margin: 1.5% 30%;
+  }
+}
+
+@media  screen and (min-width: 1680px) and (min-height: 1050px)
+{
+  .container{
+    width: 70%;
+    height: 88%;
+  }
+
+  .restrict-bg{
+   background: #000000 url('https://unovegas.us/assets/img/restriction/restrict-bg.png') top center no-repeat;
+   border-top: 5px solid #ff0000;
+   display: inline-block !important;
+
+background-size: 100% 100%;
+ }
+
+ .footer-restrict-img {
+    background: #1d1d1d;
+    width: 45%;
+    margin: 1.5% 27%;
+}
+
+}
+
+@media  screen and (min-width: 1920px) and (min-height: 1080px)
+{
+  .footer-restrict-img {
+    background: #1d1d1d;
+    width: 50%;
+    margin: 1.5% 26%;
+  }
+
+  .footer-container {
+    width: 100%;
+    bottom: 0;
+    height: 10.5%;
+    background: #1d1d1d;
+  }
+
+  .container {
+    width: 70%;
+    height: 89%;
+  }
+}
+
+</style>
+
+<body>
+  <div class="base-div restrict-bg">
+    <div class="container">
+       <div class="logo-container">
+        <img class="logo-image" src="https://unovegas.us/assets/img/restriction/restrict-logo.png">
+      </div>
+      <div class="header-container">
+        <h1 class="title-text">ACCESS RESTRICTED</h1>
+      </div>
+      <div class="subheader">
+        <ul class="">
+          <li><a href="">Akses Terbatas</a></li>
+          <li><a href="">访问限制</a></li>
+          <li><a href="">ข้อจำกัดในการเข้าถึง</a></li>
+          <li><a href="">Hạn Chế Truy Cập</a></li>
+          <li><a href="">접속 제한</a></li>
+        </ul>
+      </div>
+      <div class="column-text">
+       <div class="flex-container">
+        <div class="flex-item">
+          <h3>INDONESIA<img class="indonesia1" src="https://unovegas.us/assets/img/restriction/restrict-Indonesia.png"></h3>
+          <p class="indonesia2">Kepada Para Pelanggan Yang Terhormat:</p>
+          <p class="indonesia3">Lokasi di mana Anda mencoba untuk mengakses halaman ini telah dilarang. Kami mohon maaf atas ketidaknyamanan yang terjadi.</p>
+        </div>
+        <div class="flex-item">
+          <h3>MALAYSIA<img class="malaysia1" src="https://unovegas.us/assets/img/restriction/restrict-Malaysia.png"></h3>
+          <p class="malaysia2">Dear Valued Customers:</p>
+          <p class="malaysia3">The page that you are trying to access has been restricted in this location. We apologize for any inconvenience caused.</p>
+        </div>
+        <div class="flex-item">
+          <h3>CHINA<img class="china1" src="https://unovegas.us/assets/img/restriction/restrict-China.png"></h3>
+          <p class="china2">亲爱的客户：</p>
+          <p class="china3">您当前所在地区限制，无法浏览您所尝试打开网页，我们对您造成的不便表示万分歉意。</p>
+        </div>
+      </div> <!-- End of first flex -->
+      <div class="flex-container">
+        <div class="flex-item">
+          <h3>THAILAND<img class="thai1" src="https://unovegas.us/assets/img/restriction/restrict-Thai.png"></h3>
+          <p class="thai2">เรียนลูกค้าผู้มีอุปการะคุณ :</p>
+          <p class="thai3">หน้าจอแสดงผลที่คุณพยายามเชื่อมต่อได้ถูกจำกัด เราขอแสดงความเสียใจในความไม่สะดวกมายัง ณ.</p>
+        </div>
+        <div class="flex-item">
+          <h3>VIETNAM<img class="viet1" src="https://unovegas.us/assets/img/restriction/restrict-Viet.png"></h3>
+          <p class="viet2">Kinh Chào Qúy Khách:</p>
+          <p class="viet3">Đường dẫn mà quý khách đang truy cập trên trang này bị hạn chế. Chúng tôi thành thật xin lỗi vì những bất tiện này.</p>
+         </div>
+        <div class="flex-item">
+          <h3>KOREA<img class="korean1" src="https://unovegas.us/assets/img/restriction/restrict-Korea.png"></h3>
+          <p class="korean2">고객님：</p>
+          <p class="korean3">접속하려는 페이지가 현재 접속 지역에서 제한이 되어 있습니다. 불편을 드려 죄송합니다.</p>
+        </div>
+      </div> <!-- End of second flex -->
+    </div>
+
+
+  </div>
+    <div class="footer-container">
+     <div class="footer-border1"></div>
+     <div class="footer-restrict-img">
+      <img class="img-width" src="https://unovegas.us/assets/img/restriction/restrict-footer.png">
+    </div>
+
+
+</div>
+</body>
+</html>
