@@ -1,19 +1,18 @@
-
 map $http_cookie $has_sticky_cookie_{{ item.1 | replace('.', '_') }} {
     default 0;
     {% for fresh_domain in item.0.fresh_domains %}
-    ~sticky_{{ item.0.name }}=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_{{ fresh_domain }}     1;
+    ~sticky_{{ item.0.name }}=([a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9])_{{ fresh_domain }}     1;
     {% endfor %}
 }
 
 map $http_cookie $sticky_sub_{{ item.1 | replace('.', '_') }} {
     default "";
-    ~sticky_{{ item.0.name }}=([a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9])_.* $1;
+    ~sticky_{{ item.0.name }}=([a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9])_.* $1;
 }
 
 map $http_cookie $sticky_domain_{{ item.1 | replace('.', '_') }} {
     default "";
-    ~sticky_{{ item.0.name }}=[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]_(.*) $1;
+    ~sticky_{{ item.0.name }}=[a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9]_(.*) $1;
 }
 
 # ✅ Distribute randomly based on last digit
@@ -42,29 +41,123 @@ server {
     server_name {{ item.1 }};
     
     location / {
-        set $temp "${request_id}${msec}${remote_port}";
-        set $random_str "";
-        set $fallback_str "";
+        # Generate 5 letters and 5 numbers
+        set $letters "";
+        set $numbers "";
         
-        # Primary match
-        if ($temp ~ "([0-9a-fA-F])([0-9])([0-9a-fA-F])([0-9])([0-9a-fA-F])") {
-            set $random_str "$1$2$3$4$5";
+        # Extract letters from request_id (convert hex to letters)
+        if ($request_id ~ "^(.)(.)(.)(.)(.)") {
+            set $h1 $1;
+            set $h2 $2;
+            set $h3 $3;
+            set $h4 $4;
+            set $h5 $5;
         }
         
-        # Fallback match (not nested)
-        if ($random_str = "") {
-            set $fallback_str "$request_id";
+        # Map each hex character to a letter
+        set $l1 "a";
+        if ($h1 = "0") { set $l1 "a"; }
+        if ($h1 = "1") { set $l1 "b"; }
+        if ($h1 = "2") { set $l1 "c"; }
+        if ($h1 = "3") { set $l1 "d"; }
+        if ($h1 = "4") { set $l1 "e"; }
+        if ($h1 = "5") { set $l1 "f"; }
+        if ($h1 = "6") { set $l1 "g"; }
+        if ($h1 = "7") { set $l1 "h"; }
+        if ($h1 = "8") { set $l1 "i"; }
+        if ($h1 = "9") { set $l1 "j"; }
+        if ($h1 = "a") { set $l1 "k"; }
+        if ($h1 = "b") { set $l1 "l"; }
+        if ($h1 = "c") { set $l1 "m"; }
+        if ($h1 = "d") { set $l1 "n"; }
+        if ($h1 = "e") { set $l1 "o"; }
+        if ($h1 = "f") { set $l1 "p"; }
+        
+        set $l2 "b";
+        if ($h2 = "0") { set $l2 "q"; }
+        if ($h2 = "1") { set $l2 "r"; }
+        if ($h2 = "2") { set $l2 "s"; }
+        if ($h2 = "3") { set $l2 "t"; }
+        if ($h2 = "4") { set $l2 "u"; }
+        if ($h2 = "5") { set $l2 "v"; }
+        if ($h2 = "6") { set $l2 "w"; }
+        if ($h2 = "7") { set $l2 "x"; }
+        if ($h2 = "8") { set $l2 "y"; }
+        if ($h2 = "9") { set $l2 "z"; }
+        if ($h2 = "a") { set $l2 "a"; }
+        if ($h2 = "b") { set $l2 "b"; }
+        if ($h2 = "c") { set $l2 "c"; }
+        if ($h2 = "d") { set $l2 "d"; }
+        if ($h2 = "e") { set $l2 "e"; }
+        if ($h2 = "f") { set $l2 "f"; }
+        
+        set $l3 "c";
+        if ($h3 = "0") { set $l3 "g"; }
+        if ($h3 = "1") { set $l3 "h"; }
+        if ($h3 = "2") { set $l3 "i"; }
+        if ($h3 = "3") { set $l3 "j"; }
+        if ($h3 = "4") { set $l3 "k"; }
+        if ($h3 = "5") { set $l3 "l"; }
+        if ($h3 = "6") { set $l3 "m"; }
+        if ($h3 = "7") { set $l3 "n"; }
+        if ($h3 = "8") { set $l3 "o"; }
+        if ($h3 = "9") { set $l3 "p"; }
+        if ($h3 = "a") { set $l3 "q"; }
+        if ($h3 = "b") { set $l3 "r"; }
+        if ($h3 = "c") { set $l3 "s"; }
+        if ($h3 = "d") { set $l3 "t"; }
+        if ($h3 = "e") { set $l3 "u"; }
+        if ($h3 = "f") { set $l3 "v"; }
+        
+        set $l4 "d";
+        if ($h4 = "0") { set $l4 "w"; }
+        if ($h4 = "1") { set $l4 "x"; }
+        if ($h4 = "2") { set $l4 "y"; }
+        if ($h4 = "3") { set $l4 "z"; }
+        if ($h4 = "4") { set $l4 "a"; }
+        if ($h4 = "5") { set $l4 "b"; }
+        if ($h4 = "6") { set $l4 "c"; }
+        if ($h4 = "7") { set $l4 "d"; }
+        if ($h4 = "8") { set $l4 "e"; }
+        if ($h4 = "9") { set $l4 "f"; }
+        if ($h4 = "a") { set $l4 "g"; }
+        if ($h4 = "b") { set $l4 "h"; }
+        if ($h4 = "c") { set $l4 "i"; }
+        if ($h4 = "d") { set $l4 "j"; }
+        if ($h4 = "e") { set $l4 "k"; }
+        if ($h4 = "f") { set $l4 "l"; }
+        
+        set $l5 "e";
+        if ($h5 = "0") { set $l5 "m"; }
+        if ($h5 = "1") { set $l5 "n"; }
+        if ($h5 = "2") { set $l5 "o"; }
+        if ($h5 = "3") { set $l5 "p"; }
+        if ($h5 = "4") { set $l5 "q"; }
+        if ($h5 = "5") { set $l5 "r"; }
+        if ($h5 = "6") { set $l5 "s"; }
+        if ($h5 = "7") { set $l5 "t"; }
+        if ($h5 = "8") { set $l5 "u"; }
+        if ($h5 = "9") { set $l5 "v"; }
+        if ($h5 = "a") { set $l5 "w"; }
+        if ($h5 = "b") { set $l5 "x"; }
+        if ($h5 = "c") { set $l5 "y"; }
+        if ($h5 = "d") { set $l5 "z"; }
+        if ($h5 = "e") { set $l5 "a"; }
+        if ($h5 = "f") { set $l5 "b"; }
+        
+        # Extract 5 numbers from msec and remote_port
+        set $nums "${msec}${remote_port}";
+        if ($nums ~ "([0-9])([0-9])([0-9])([0-9])([0-9])$") {
+            set $numbers "$1$2$3$4$5";
         }
         
-        # Extract from fallback if needed (not strict but safe)
-        if ($fallback_str ~ "^([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f])") {
-            set $random_str "$1$2$3";
+        # Fallback if no numbers found
+        if ($numbers = "") {
+            set $numbers "12345";
         }
         
-        # Ultimate fallback
-        if ($random_str = "") {
-            set $random_str "a1b2c";
-        }
+        # Combine letters and numbers
+        set $random_str "${l1}${l2}${l3}${l4}${l5}${numbers}";
         
         # Use sticky cookie if available
         if ($has_sticky_cookie_{{ item.1 | replace('.', '_') }}) {
