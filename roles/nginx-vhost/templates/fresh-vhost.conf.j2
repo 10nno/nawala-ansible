@@ -1,10 +1,11 @@
-server {
-    listen 80;
-    server_name *.{{ item.1 }};
-    return 302 https://$host$request_uri;
-}
+#server {
+#    listen 80;
+#    server_name *.{{ item.1 }};
+ #   return 302 https://$host$request_uri;
+#}
 
 server {
+listen 80;
     listen 443 ssl;
     ssl_certificate /etc/letsencrypt/live/{{ item.1 }}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{{ item.1 }}/privkey.pem;
