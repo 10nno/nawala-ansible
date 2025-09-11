@@ -1,0 +1,178 @@
+server {
+    listen 80;
+    server_name *.{{ item.1 }};
+    return 302 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/{{ item.1 }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ item.1 }}/privkey.pem;
+
+    server_name *.{{ item.1 }};
+
+    # Increase buffer sizes
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
+
+    # Special handling for dewafortune/referral and auth endpoints that redirect externally
+    location ~ ^/(dewafortune/referral|auth/select_game|auth/login|auth/callback|oauth|sso) {
+        proxy_pass http://{{ item.0.main_domain }};
+        
+        proxy_set_header Host {{ item.0.main_domain }};
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Accept-Encoding "";
+
+        # CRITICAL: Don't rewrite ANY redirects for these endpoints
+        proxy_redirect off;
+        proxy_intercept_errors off;
+        
+        # Cookie handling
+        proxy_cookie_domain {{ item.0.main_domain }} $host;
+        {% if item.0.canon_domain is defined %}
+        proxy_cookie_domain {{ item.0.canon_domain }} $host;
+        {% endif %}
+        
+        # Minimal content filtering for auth pages
+        sub_filter_once off;
+        sub_filter_types text/html application/json;
+        
+        # Only rewrite return URLs that point back to our domain
+        sub_filter 'returnUrl=https%3A%2F%2F{{ item.0.main_domain }}' 'returnUrl=https%3A%2F%2F$host';
+        sub_filter 'returnUrl=http%3A%2F%2F{{ item.0.main_domain }}' 'returnUrl=https%3A%2F%2F$host';
+        sub_filter 'redirectUrl=https%3A%2F%2F{{ item.0.main_domain }}' 'redirectUrl=https%3A%2F%2F$host';
+        sub_filter 'redirectUrl=http%3A%2F%2F{{ item.0.main_domain }}' 'redirectUrl=https%3A%2F%2F$host';
+        
+        {% if item.0.canon_domain is defined %}
+        sub_filter 'returnUrl=https%3A%2F%2F{{ item.0.canon_domain }}' 'returnUrl=https%3A%2F%2F$host';
+        sub_filter 'returnUrl=http%3A%2F%2F{{ item.0.canon_domain }}' 'returnUrl=https%3A%2F%2F$host';
+        sub_filter 'redirectUrl=https%3A%2F%2F{{ item.0.canon_domain }}' 'redirectUrl=https%3A%2F%2F$host';
+        sub_filter 'redirectUrl=http%3A%2F%2F{{ item.0.canon_domain }}' 'redirectUrl=https%3A%2F%2F$host';
+        {% endif %}
+    }
+
+    # Special handling for game redirects
+    location ~ ^/(gs2c|game|play|launch|casino|slots|pragmatic|pgsoft|habanero|microgaming|playtech) {
+        proxy_pass http://{{ item.0.main_domain }};
+
+        proxy_set_header Host {{ item.0.main_domain }};
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Accept-Encoding "";
+
+        # Don't rewrite external game provider redirects
+        proxy_redirect off;
+        proxy_intercept_errors off;
+
+        # Cookie handling for games
+        proxy_cookie_domain {{ item.0.main_domain }} $host;
+        {% if item.0.canon_domain is defined %}
+        proxy_cookie_domain {{ item.0.canon_domain }} $host;
+        {% endif %}
+
+        # Minimal sub_filter for game content
+        sub_filter_once off;
+        sub_filter_types text/html text/javascript application/javascript application/json;
+
+        # Only replace lobby and cashier URLs
+        sub_filter 'lobbyUrl=https%3A%2F%2F{{ item.0.main_domain }}' 'lobbyUrl=https%3A%2F%2F$host';
+        sub_filter 'lobbyUrl=https://{{ item.0.main_domain }}' 'lobbyUrl=https://$host';
+        sub_filter 'cashierUrl=https%3A%2F%2F{{ item.0.main_domain }}' 'cashierUrl=https%3A%2F%2F$host';
+        sub_filter 'cashierUrl=https://{{ item.0.main_domain }}' 'cashierUrl=https://$host';
+        
+        {% if item.0.canon_domain is defined %}
+        sub_filter 'lobbyUrl=https%3A%2F%2F{{ item.0.canon_domain }}' 'lobbyUrl=https%3A%2F%2F$host';
+        sub_filter 'lobbyUrl=https://{{ item.0.canon_domain }}' 'lobbyUrl=https://$host';
+        sub_filter 'cashierUrl=https%3A%2F%2F{{ item.0.canon_domain }}' 'cashierUrl=https%3A%2F%2F$host';
+        sub_filter 'cashierUrl=https://{{ item.0.canon_domain }}' 'cashierUrl=https://$host';
+        {% endif %}
+    }
+
+    # Default location for everything else
+    location / {
+        proxy_intercept_errors on;
+        proxy_pass http://{{ item.0.main_domain }};
+
+        proxy_set_header Host {{ item.0.main_domain }};
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Accept-Encoding "";
+
+        # For normal pages, rewrite redirects to our domain only
+        proxy_redirect http://{{ item.0.main_domain }}/ https://$host/;
+        proxy_redirect https://{{ item.0.main_domain }}/ https://$host/;
+        proxy_redirect http://{{ item.0.main_domain }} https://$host/;
+        proxy_redirect https://{{ item.0.main_domain }} https://$host/;
+        proxy_redirect http://www.{{ item.0.main_domain }}/ https://$host/;
+        proxy_redirect https://www.{{ item.0.main_domain }}/ https://$host/;
+
+        {% if item.0.canon_domain is defined and item.0.canon_domain != item.0.main_domain %}
+        proxy_redirect http://{{ item.0.canon_domain }}/ https://$host/;
+        proxy_redirect https://{{ item.0.canon_domain }}/ https://$host/;
+        proxy_redirect http://{{ item.0.canon_domain }} https://$host/;
+        proxy_redirect https://{{ item.0.canon_domain }} https://$host/;
+        proxy_redirect http://www.{{ item.0.canon_domain }}/ https://$host/;
+        proxy_redirect https://www.{{ item.0.canon_domain }}/ https://$host/;
+        {% endif %}
+
+        # Cookie domain rewriting
+        proxy_cookie_domain {{ item.0.main_domain }} $host;
+        proxy_cookie_domain .{{ item.0.main_domain }} .$host;
+        proxy_cookie_domain www.{{ item.0.main_domain }} $host;
+
+        {% if item.0.canon_domain is defined and item.0.canon_domain != item.0.main_domain %}
+        proxy_cookie_domain {{ item.0.canon_domain }} $host;
+        proxy_cookie_domain .{{ item.0.canon_domain }} .$host;
+        proxy_cookie_domain www.{{ item.0.canon_domain }} $host;
+        {% endif %}
+
+        proxy_cookie_path / /;
+
+        # Content rewriting
+        sub_filter_once off;
+        sub_filter_types text/html text/css text/javascript application/javascript application/json text/xml;
+
+        # Replace domain references
+        sub_filter '{{ item.0.main_domain }}' '$host';
+        sub_filter 'http://{{ item.0.main_domain }}' 'https://$host';
+        sub_filter 'https://{{ item.0.main_domain }}' 'https://$host';
+        sub_filter '//{{ item.0.main_domain }}' '//$host';
+
+        {% if item.0.canon_domain is defined %}
+        sub_filter '{{ item.0.canon_domain }}' '$host';
+        sub_filter 'http://{{ item.0.canon_domain }}' 'https://$host';
+        sub_filter 'https://{{ item.0.canon_domain }}' 'https://$host';
+        sub_filter '//{{ item.0.canon_domain }}' '//$host';
+        {% endif %}
+
+        # Fix JavaScript redirects
+        sub_filter "window.location = 'http" "window.location = 'https";
+        sub_filter 'window.location.href = "http' 'window.location.href = "https';
+        sub_filter "window.location.href = 'http" "window.location.href = 'https";
+
+        # Fix meta refresh
+        sub_filter 'content="0; url=http://{{ item.0.main_domain }}' 'content="0; url=https://$host';
+        sub_filter 'content="0; url=https://{{ item.0.main_domain }}' 'content="0; url=https://$host';
+
+        {% if item.0.canon_domain is defined %}
+        sub_filter 'content="0; url=http://{{ item.0.canon_domain }}' 'content="0; url=https://$host';
+        sub_filter 'content="0; url=https://{{ item.0.canon_domain }}' 'content="0; url=https://$host';
+        {% endif %}
+    }
+
+
+}
