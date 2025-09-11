@@ -1,4 +1,3 @@
-{# Create a safe variable name by replacing dashes and dots with underscores #}
 {% set safe_domain_var = item.1 | replace('-', '_') | replace('.', '_') %}
 
 map $http_cookie $has_sticky_cookie_{{ safe_domain_var }} {
@@ -18,7 +17,6 @@ map $http_cookie $sticky_domain_{{ safe_domain_var }} {
     ~sticky_{{ item.0.name }}=[a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9]_(.*) $1;
 }
 
-# ✅ Distribute randomly based on last digit
 map $msec$remote_port $selected_fresh_{{ safe_domain_var }} {
     {% set fresh_domains = item.0.fresh_domains %}
     {% if fresh_domains|length == 2 %}
@@ -41,15 +39,13 @@ map $msec$remote_port $selected_fresh_{{ safe_domain_var }} {
 server {
     listen 80;
     listen 443;
-    
+
     server_name {{ item.1 }} www.{{ item.1}};
-    
+
     location / {
-        # Generate 5 letters and 5 numbers
         set $letters "";
         set $numbers "";
-        
-        # Extract letters from request_id (convert hex to letters)
+
         if ($request_id ~ "^(.)(.)(.)(.)(.)") {
             set $h1 $1;
             set $h2 $2;
@@ -57,8 +53,7 @@ server {
             set $h4 $4;
             set $h5 $5;
         }
-        
-        # Map each hex character to a letter
+
         set $l1 "a";
         if ($h1 = "0") { set $l1 "a"; }
         if ($h1 = "1") { set $l1 "b"; }
@@ -76,7 +71,7 @@ server {
         if ($h1 = "d") { set $l1 "n"; }
         if ($h1 = "e") { set $l1 "o"; }
         if ($h1 = "f") { set $l1 "p"; }
-        
+
         set $l2 "b";
         if ($h2 = "0") { set $l2 "q"; }
         if ($h2 = "1") { set $l2 "r"; }
@@ -94,7 +89,7 @@ server {
         if ($h2 = "d") { set $l2 "d"; }
         if ($h2 = "e") { set $l2 "e"; }
         if ($h2 = "f") { set $l2 "f"; }
-        
+
         set $l3 "c";
         if ($h3 = "0") { set $l3 "g"; }
         if ($h3 = "1") { set $l3 "h"; }
@@ -112,7 +107,7 @@ server {
         if ($h3 = "d") { set $l3 "t"; }
         if ($h3 = "e") { set $l3 "u"; }
         if ($h3 = "f") { set $l3 "v"; }
-        
+
         set $l4 "d";
         if ($h4 = "0") { set $l4 "w"; }
         if ($h4 = "1") { set $l4 "x"; }
@@ -130,7 +125,7 @@ server {
         if ($h4 = "d") { set $l4 "j"; }
         if ($h4 = "e") { set $l4 "k"; }
         if ($h4 = "f") { set $l4 "l"; }
-        
+
         set $l5 "e";
         if ($h5 = "0") { set $l5 "m"; }
         if ($h5 = "1") { set $l5 "n"; }
@@ -148,26 +143,26 @@ server {
         if ($h5 = "d") { set $l5 "z"; }
         if ($h5 = "e") { set $l5 "a"; }
         if ($h5 = "f") { set $l5 "b"; }
-        
+
         # Extract 5 numbers from msec and remote_port
         set $nums "${msec}${remote_port}";
         if ($nums ~ "([0-9])([0-9])([0-9])([0-9])([0-9])$") {
             set $numbers "$1$2$3$4$5";
         }
-        
+
         # Fallback if no numbers found
         if ($numbers = "") {
             set $numbers "12345";
         }
-        
+
         # Combine letters and numbers
         set $random_str "${l1}${l2}${l3}${l4}${l5}${numbers}";
-        
+
         # Use sticky cookie if available
         if ($has_sticky_cookie_{{ safe_domain_var }}) {
             return 302 https://$sticky_sub_{{ safe_domain_var }}.$sticky_domain_{{ safe_domain_var }}$request_uri;
         }
-        
+
         # Set cookie and redirect
         add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_$selected_fresh_{{ safe_domain_var }}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax";
         return 302 https://$random_str.$selected_fresh_{{ safe_domain_var }}$request_uri;
