@@ -36,6 +36,7 @@ map $msec$remote_port $selected_fresh_{{ item.1 | replace('.', '_') }} {
 }
 
 server {
+    listen 80;
     listen 443;
     
     server_name {{ item.1 }} www.{{ item.1}};
