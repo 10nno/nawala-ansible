@@ -1,22 +1,25 @@
-map $http_cookie $has_sticky_cookie_{{ item.1 | replace('.', '_') }} {
+{# Create a safe variable name by replacing dashes and dots with underscores #}
+{% set safe_domain_var = item.1 | replace('-', '_') | replace('.', '_') %}
+
+map $http_cookie $has_sticky_cookie_{{ safe_domain_var }} {
     default 0;
     {% for fresh_domain in item.0.fresh_domains %}
-    ~sticky_{{ item.0.name }}=([a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9])_{{ fresh_domain }}     1;
+    ~sticky_{{ item.0.name }}=([a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9])_{{ fresh_domain | regex_escape }}     1;
     {% endfor %}
 }
 
-map $http_cookie $sticky_sub_{{ item.1 | replace('.', '_') }} {
+map $http_cookie $sticky_sub_{{ safe_domain_var }} {
     default "";
     ~sticky_{{ item.0.name }}=([a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9])_.* $1;
 }
 
-map $http_cookie $sticky_domain_{{ item.1 | replace('.', '_') }} {
+map $http_cookie $sticky_domain_{{ safe_domain_var }} {
     default "";
     ~sticky_{{ item.0.name }}=[a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][0-9][0-9][0-9][0-9][0-9]_(.*) $1;
 }
 
 # ✅ Distribute randomly based on last digit
-map $msec$remote_port $selected_fresh_{{ item.1 | replace('.', '_') }} {
+map $msec$remote_port $selected_fresh_{{ safe_domain_var }} {
     {% set fresh_domains = item.0.fresh_domains %}
     {% if fresh_domains|length == 2 %}
     ~.*[0-4]$ "{{ fresh_domains[0] }}";
@@ -161,12 +164,12 @@ server {
         set $random_str "${l1}${l2}${l3}${l4}${l5}${numbers}";
         
         # Use sticky cookie if available
-        if ($has_sticky_cookie_{{ item.1 | replace('.', '_') }}) {
-            return 302 https://$sticky_sub_{{ item.1 | replace('.', '_') }}.$sticky_domain_{{ item.1 | replace('.', '_') }}$request_uri;
+        if ($has_sticky_cookie_{{ safe_domain_var }}) {
+            return 302 https://$sticky_sub_{{ safe_domain_var }}.$sticky_domain_{{ safe_domain_var }}$request_uri;
         }
         
         # Set cookie and redirect
-        add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_$selected_fresh_{{ item.1 | replace('.', '_') }}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax";
-        return 302 https://$random_str.$selected_fresh_{{ item.1 | replace('.', '_') }}$request_uri;
+        add_header Set-Cookie "sticky_{{ item.0.name }}=${random_str}_$selected_fresh_{{ safe_domain_var }}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax";
+        return 302 https://$random_str.$selected_fresh_{{ safe_domain_var }}$request_uri;
     }
 }
